@@ -12,11 +12,11 @@ import {
   PURPLE_BONUSES,
   TRACK_LEN,
   YELLOW_COL_SCORES,
-  YELLOW_ROW_BONUSES,
   areaScores,
   blueOptions,
   foxScore,
   totalScore,
+  yellowColComplete,
   yellowOptions,
 } from "@/lib/game/sheet";
 import type { Bonus, Prompt, Sheet } from "@/lib/game/types";
@@ -34,30 +34,27 @@ export function ScoreSheet({
   onBlue: (index: number) => void;
 }) {
   const areas = areaScores(sheet);
-  const yellowHot =
-    prompt?.kind === "yellow-cell" ? yellowOptions(sheet, prompt.value) : [];
+  const yellowHot = prompt?.kind === "yellow-cell" ? yellowOptions(sheet, prompt.value) : [];
   const blueHot = prompt?.kind === "blue-cell" ? blueOptions(sheet, prompt.value) : [];
+  const blueMarks = sheet.blue.filter(Boolean).length;
+  const lowest = Math.min(...Object.values(areas));
 
   return (
-    <div className="rounded-3xl bg-sheet p-3 text-ink shadow-2xl sm:p-5">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-display text-2xl">Score sheet</p>
-        <p className="text-sm font-semibold">
-          {totalScore(sheet)} pts
-          <span className="ml-2 font-normal text-ink/50">
-            foxes {sheet.foxes} × lowest {Math.min(...Object.values(areas))} = {foxScore(sheet)}
-          </span>
+    <div className="rounded-3xl bg-sheet p-2.5 text-ink shadow-2xl sm:p-4">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+        <p className="font-display text-xl sm:text-2xl">{totalScore(sheet)} points</p>
+        <p className="text-xs text-ink/60 sm:text-sm">
+          {sheet.foxes} fox{sheet.foxes === 1 ? "" : "es"} × {lowest} lowest ={" "}
+          <strong className="text-ink">{foxScore(sheet)}</strong>
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl bg-yellow/25 p-3">
-          <h2 className="mb-2 text-xs font-bold tracking-wide text-yellow-ink uppercase">
-            Yellow · columns score · rows bonus
-          </h2>
-          <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid gap-2.5 md:grid-cols-2">
+        <Area color="yellow" title="Yellow" score={areas.yellow} note="columns score · rows pay bonuses">
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
             {sheet.yellow.map((cell, i) => {
               const hot = yellowHot.includes(i);
+              const pre = cell.value === "pre";
               return (
                 <button
                   key={i}
@@ -65,43 +62,39 @@ export function ScoreSheet({
                   disabled={!hot}
                   onClick={() => onYellow(i)}
                   className={cn(
-                    "aspect-square rounded-lg border text-sm font-bold",
-                    cell.marked
-                      ? "border-yellow-ink/40 bg-yellow-ink text-sheet line-through"
-                      : "border-yellow-ink/30 bg-sheet",
-                    hot && "ring-2 ring-ink animate-pulse",
+                    "flex aspect-square items-center justify-center rounded-lg border text-base font-bold transition sm:text-lg",
+                    pre
+                      ? "border-yellow-ink/25 bg-yellow-ink/20 text-yellow-ink/40"
+                      : cell.marked
+                        ? "border-yellow-ink bg-yellow-ink text-sheet"
+                        : "border-yellow-ink/25 bg-white text-yellow-ink",
+                    hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
                   )}
                 >
-                  {cell.value === "pre" ? "×" : cell.value}
+                  {pre ? "✕" : cell.marked ? "✕" : cell.value}
                 </button>
               );
             })}
           </div>
-          <div className="mt-2 grid grid-cols-4 gap-1.5 text-center text-[11px] font-semibold text-yellow-ink/80">
-            {YELLOW_COL_SCORES.map((s) => (
-              <span key={s}>{s}</span>
-            ))}
-          </div>
-          <p className="mt-1 text-[11px] text-ink/55">
-            Row bonuses: {YELLOW_ROW_BONUSES.map(bonusLabel).join(" · ")} · diagonal fox
-          </p>
-          <p className="mt-1 text-sm font-semibold">{areas.yellow} pts</p>
-        </section>
-
-        <section className="rounded-2xl bg-blue/20 p-3">
-          <h2 className="mb-2 text-xs font-bold tracking-wide text-blue uppercase">
-            Blue · white + blue
-          </h2>
-          <p className="mb-2 flex flex-wrap gap-1 text-[11px] text-ink/60">
-            {BLUE_SCORES.slice(1).map((s, i) => (
-              <span key={s} className={cn(sheet.blue.filter(Boolean).length === i + 1 && "font-bold text-blue")}>
-                {i + 1}:{s}
+          <div className="mt-1 grid grid-cols-4 gap-1 text-center sm:gap-1.5">
+            {YELLOW_COL_SCORES.map((s, c) => (
+              <span
+                key={s}
+                className={cn(
+                  "rounded py-0.5 text-[11px] font-bold",
+                  yellowColComplete(sheet, c) ? "bg-yellow-ink text-sheet" : "text-yellow-ink/70",
+                )}
+              >
+                {s}
               </span>
             ))}
-          </p>
-          <div className="space-y-1.5">
+          </div>
+        </Area>
+
+        <Area color="blue" title="Blue" score={areas.blue} note="white + blue · any order">
+          <div className="space-y-1 sm:space-y-1.5">
             {BLUE_ROWS.map((row, r) => (
-              <div key={r} className="flex gap-1.5">
+              <div key={r} className="flex gap-1 sm:gap-1.5">
                 {row.map((i) => {
                   const hot = blueHot.includes(i);
                   return (
@@ -111,11 +104,11 @@ export function ScoreSheet({
                       disabled={!hot}
                       onClick={() => onBlue(i)}
                       className={cn(
-                        "h-10 min-w-10 flex-1 rounded-lg border text-sm font-bold",
+                        "h-11 flex-1 rounded-lg border text-sm font-bold transition sm:text-base",
                         sheet.blue[i]
-                          ? "border-blue bg-blue text-sheet line-through"
-                          : "border-blue/30 bg-sheet text-blue",
-                        hot && "ring-2 ring-ink animate-pulse",
+                          ? "border-blue bg-blue text-white"
+                          : "border-blue/25 bg-white text-blue",
+                        hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
                       )}
                     >
                       {BLUE_NUMBERS[i]}
@@ -125,107 +118,199 @@ export function ScoreSheet({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-sm font-semibold">{areas.blue} pts</p>
-        </section>
+          <div className="no-scrollbar mt-1.5 flex gap-1 overflow-x-auto text-[10px] font-semibold">
+            {BLUE_SCORES.slice(1).map((s, i) => (
+              <span
+                key={s}
+                className={cn(
+                  "shrink-0 rounded px-1 py-0.5",
+                  blueMarks === i + 1 ? "bg-blue text-white" : "bg-blue/10 text-blue/70",
+                )}
+              >
+                {i + 1}→{s}
+              </span>
+            ))}
+          </div>
+        </Area>
       </div>
 
       <Track
-        title="Green · next box must meet the number"
         color="green"
+        title="Green"
+        note="left to right · must meet the number"
+        score={areas.green}
         cells={GREEN_MIN.map((min, i) => ({
           label: `≥${min}`,
           filled: i < sheet.green,
-          hint: bonusLabel(GREEN_BONUSES[i]),
-          star: GREEN_SCORES[i + 1],
+          bonus: GREEN_BONUSES[i],
+          above: GREEN_SCORES[i + 1],
+          current: i === sheet.green,
         }))}
-        score={areas.green}
       />
       <Track
-        title="Orange · write pips; × boxes multiply"
         color="orange"
-        cells={ORANGE_MULT.map((m, i) => ({
-          label: sheet.orange[i] != null ? String(sheet.orange[i]) : m > 1 ? `×${m}` : "·",
-          filled: sheet.orange[i] != null,
-          hint: bonusLabel(ORANGE_BONUSES[i]),
-        }))}
+        title="Orange"
+        note="write the pips · × boxes multiply"
         score={areas.orange}
+        cells={ORANGE_MULT.map((m, i) => ({
+          label: sheet.orange[i] != null ? String(sheet.orange[i]) : m > 1 ? `×${m}` : "",
+          filled: sheet.orange[i] != null,
+          bonus: ORANGE_BONUSES[i],
+          current: sheet.orange.findIndex((v) => v === null) === i,
+          accent: m > 1 && sheet.orange[i] == null,
+        }))}
       />
       <Track
-        title="Purple · strictly higher, any number after 6"
         color="purple"
-        cells={Array.from({ length: TRACK_LEN }, (_, i) => ({
-          label: sheet.purple[i] != null ? String(sheet.purple[i]) : i === 0 ? "any" : ">",
-          filled: sheet.purple[i] != null,
-          hint: bonusLabel(PURPLE_BONUSES[i]),
-        }))}
+        title="Purple"
+        note="must climb · anything after a 6"
         score={areas.purple}
+        cells={Array.from({ length: TRACK_LEN }, (_, i) => ({
+          label: sheet.purple[i] != null ? String(sheet.purple[i]) : "",
+          filled: sheet.purple[i] != null,
+          bonus: PURPLE_BONUSES[i],
+          current: sheet.purple.findIndex((v) => v === null) === i,
+        }))}
       />
     </div>
   );
 }
 
-function bonusLabel(b: Bonus | null | undefined) {
-  if (!b) return "";
-  if (b.type === "fox") return "fox";
-  if (b.type === "extraDie") return "+die";
-  if (b.type === "reroll") return "reroll";
-  if (b.type === "yellowX") return "Y";
-  if (b.type === "blueX") return "B";
-  if (b.type === "greenX") return "G";
-  if (b.type === "orangeN") return `O${b.value}`;
-  if (b.type === "purpleN") return `P${b.value}`;
-  return "";
+const SKIN = {
+  yellow: {
+    wrap: "bg-yellow/20",
+    title: "text-yellow-ink",
+    fill: "border-yellow-ink bg-yellow-ink text-sheet",
+    idle: "border-yellow-ink/25 bg-white text-yellow-ink",
+  },
+  blue: {
+    wrap: "bg-blue/10",
+    title: "text-blue",
+    fill: "border-blue bg-blue text-white",
+    idle: "border-blue/25 bg-white text-blue",
+  },
+  green: {
+    wrap: "bg-green/10",
+    title: "text-green",
+    fill: "border-green bg-green text-white",
+    idle: "border-green/25 bg-white text-green",
+  },
+  orange: {
+    wrap: "bg-orange/10",
+    title: "text-orange",
+    fill: "border-orange bg-orange text-white",
+    idle: "border-orange/25 bg-white text-orange",
+  },
+  purple: {
+    wrap: "bg-purple/10",
+    title: "text-purple",
+    fill: "border-purple bg-purple text-white",
+    idle: "border-purple/25 bg-white text-purple",
+  },
+} as const;
+
+function Area({
+  color,
+  title,
+  note,
+  score,
+  children,
+}: {
+  color: keyof typeof SKIN;
+  title: string;
+  note: string;
+  score: number;
+  children: React.ReactNode;
+}) {
+  const skin = SKIN[color];
+  return (
+    <section className={cn("rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h2 className={cn("text-xs font-extrabold tracking-wide uppercase", skin.title)}>
+          {title}
+          <span className="ml-2 font-medium normal-case opacity-60">{note}</span>
+        </h2>
+        <span className="shrink-0 text-sm font-bold">{score}</span>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 function Track({
-  title,
   color,
-  cells,
+  title,
+  note,
   score,
+  cells,
 }: {
+  color: keyof typeof SKIN;
   title: string;
-  color: "green" | "orange" | "purple";
-  cells: { label: string; filled: boolean; hint: string; star?: number }[];
+  note: string;
   score: number;
+  cells: {
+    label: string;
+    filled: boolean;
+    bonus: Bonus | null | undefined;
+    above?: number;
+    current?: boolean;
+    accent?: boolean;
+  }[];
 }) {
-  const bg = {
-    green: "bg-green/20",
-    orange: "bg-orange/20",
-    purple: "bg-purple/20",
-  }[color];
-  const fg = {
-    green: "text-green border-green/40",
-    orange: "text-orange border-orange/40",
-    purple: "text-purple border-purple/40",
-  }[color];
-  const fill = {
-    green: "bg-green text-sheet border-green",
-    orange: "bg-orange text-sheet border-orange",
-    purple: "bg-purple text-sheet border-purple",
-  }[color];
-
+  const skin = SKIN[color];
   return (
-    <section className={`mt-4 rounded-2xl ${bg} p-3`}>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className={`text-xs font-bold tracking-wide uppercase ${fg.split(" ")[0]}`}>{title}</h2>
-        <span className="text-sm font-semibold">{score} pts</span>
+    <section className={cn("mt-2.5 rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h2 className={cn("text-xs font-extrabold tracking-wide uppercase", skin.title)}>
+          {title}
+          <span className="ml-2 font-medium normal-case opacity-60">{note}</span>
+        </h2>
+        <span className="shrink-0 text-sm font-bold">{score}</span>
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="no-scrollbar -mx-0.5 flex gap-1 overflow-x-auto px-0.5">
         {cells.map((c, i) => (
-          <div key={i} className="flex min-w-11 flex-col items-center gap-0.5">
-            {c.star ? <span className="text-[10px] text-ink/45">{c.star}</span> : <span className="h-3" />}
+          <div key={i} className="flex min-w-[2.6rem] flex-1 flex-col items-center gap-0.5">
+            <span className="h-3.5 text-[10px] leading-none font-semibold text-ink/45">
+              {c.above ?? ""}
+            </span>
             <div
               className={cn(
-                "flex h-10 w-11 items-center justify-center rounded-lg border text-xs font-bold",
-                c.filled ? fill : `bg-sheet ${fg}`,
+                "flex h-11 w-full items-center justify-center rounded-lg border text-sm font-bold",
+                c.filled ? skin.fill : skin.idle,
+                c.accent && "border-dashed",
+                c.current && !c.filled && "ring-2 ring-ink/25",
               )}
             >
               {c.label}
             </div>
-            <span className="h-4 text-[9px] text-ink/50">{c.hint}</span>
+            <span className="flex h-4 items-center text-[9px] leading-none font-semibold text-ink/55">
+              {bonusLabel(c.bonus)}
+            </span>
           </div>
         ))}
       </div>
     </section>
   );
+}
+
+function bonusLabel(b: Bonus | null | undefined) {
+  if (!b) return "";
+  switch (b.type) {
+    case "fox":
+      return "🦊";
+    case "extraDie":
+      return "+die";
+    case "reroll":
+      return "↻";
+    case "yellowX":
+      return "✕Y";
+    case "blueX":
+      return "✕B";
+    case "greenX":
+      return "✕G";
+    case "orangeN":
+      return `O${b.value}`;
+    case "purpleN":
+      return `P${b.value}`;
+  }
 }

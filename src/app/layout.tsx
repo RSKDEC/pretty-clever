@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -15,13 +15,21 @@ const sans = Nunito_Sans({
 export const metadata: Metadata = {
   title: "Pretty Clever — play with friends",
   description:
-    "An unofficial table for That's Pretty Clever. Open a room, share a code, and roll colored dice together.",
+    "An unofficial table for That's Pretty Clever. Open a room, share a code, and roll colored dice together on any device.",
+  appleWebApp: { capable: true, title: "Pretty Clever", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#101d25",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} h-full antialiased`}>
-      <body className="min-h-full bg-ink font-sans text-cream">{children}</body>
+      <body className="min-h-full font-sans">{children}</body>
     </html>
   );
 }

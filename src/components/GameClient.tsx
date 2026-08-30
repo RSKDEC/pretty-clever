@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { DieFace } from "@/components/Die";
 import { DiceTray } from "@/components/DiceTray";
 import { ScoreSheet } from "@/components/ScoreSheet";
 import { diceForPrompt } from "@/lib/game/engine";
 import { areaScores, extraDieLeft, legalWhiteColors, rerollsLeft, totalScore } from "@/lib/game/sheet";
-import type { ClientAction, GameState, Prompt } from "@/lib/game/types";
-import { Link2, Users } from "lucide-react";
+import type { ClientAction, Die, GameState, Prompt } from "@/lib/game/types";
+import { cn } from "@/lib/utils";
+import { Check, Link2, RotateCcw, Users } from "lucide-react";
 
 type Snap = {
   code: string;
@@ -62,55 +64,57 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
 
   if (!state) {
     return (
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-8 px-4 py-10">
+      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-7 px-4 py-10">
         <header className="space-y-3 text-center">
-          <p className="text-xs font-semibold tracking-[0.25em] text-amber-200/80 uppercase">
+          <p className="text-[11px] font-bold tracking-[0.3em] text-gold/80 uppercase">
             Unofficial table
           </p>
-          <h1 className="font-display text-4xl text-cream sm:text-5xl">Pretty Clever</h1>
-          <p className="text-pretty text-sm leading-relaxed text-cream/75">
-            Roll six colored dice, pick cleverly, and chain bonuses across your sheet. Open a table,
-            send the code to friends, and everyone scores on every turn — including the silver
-            platter leftovers.
+          <h1 className="font-display text-5xl leading-none text-cream sm:text-6xl">Pretty Clever</h1>
+          <p className="text-pretty text-sm leading-relaxed text-cream/70">
+            Roll six colored dice, pick cleverly, and chain bonuses across your sheet. Every die you
+            leave behind lands on the silver platter for everyone else — so nobody sits idle.
           </p>
         </header>
-        <div className="rounded-2xl border border-white/10 bg-ink-2/80 p-5 shadow-xl backdrop-blur">
-          <label className="text-xs font-medium tracking-wide text-cream/60 uppercase">
+
+        <div className="rounded-3xl border border-white/10 bg-ink-2/80 p-4 shadow-2xl sm:p-5">
+          <label htmlFor="name" className="text-[11px] font-bold tracking-wide text-cream/60 uppercase">
             Your name
           </label>
           <input
+            id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Alex"
-            className="mt-2 w-full rounded-xl border border-white/10 bg-ink px-3 py-2.5 text-cream outline-none ring-amber-300/40 focus:ring-2"
+            autoComplete="nickname"
+            className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-ink px-3 text-base text-cream outline-none ring-gold/40 focus:ring-2"
           />
-          {error ? <p className="mt-3 text-sm text-orange-300">{error}</p> : null}
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={create}
-              className="rounded-xl bg-amber-300 px-4 py-3 text-sm font-semibold text-ink hover:bg-amber-200"
-            >
-              Open a table
+          {error ? <p className="mt-3 text-sm text-orange">{error}</p> : null}
+
+          <button type="button" onClick={create} className="btn-primary mt-4 w-full">
+            Open a table
+          </button>
+
+          <div className="my-4 flex items-center gap-3 text-[11px] tracking-widest text-cream/35 uppercase">
+            <span className="h-px flex-1 bg-white/10" />
+            or join
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="CODE"
+              maxLength={4}
+              autoCapitalize="characters"
+              className="h-12 w-28 rounded-xl border border-white/10 bg-ink text-center text-lg font-bold tracking-[0.25em] text-cream outline-none ring-gold/40 focus:ring-2"
+            />
+            <button type="button" onClick={join} className="btn-ghost flex-1">
+              Sit down
             </button>
-            <div className="flex gap-2">
-              <input
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="CODE"
-                maxLength={4}
-                className="w-24 rounded-xl border border-white/10 bg-ink px-3 py-2 text-center tracking-[0.3em] text-cream outline-none"
-              />
-              <button
-                type="button"
-                onClick={join}
-                className="flex-1 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-cream hover:bg-white/5"
-              >
-                Sit down
-              </button>
-            </div>
           </div>
         </div>
+
         <HowTo />
       </div>
     );
@@ -119,43 +123,55 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
   if (!state.game) {
     const share = typeof window !== "undefined" ? `${window.location.origin}/r/${state.code}` : "";
     return (
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-4 py-10">
-        <div className="rounded-2xl border border-white/10 bg-ink-2/80 p-6">
-          <p className="text-xs tracking-[0.25em] text-amber-200/80 uppercase">Table code</p>
-          <p className="font-display mt-1 text-5xl tracking-[0.2em] text-cream">{state.code}</p>
+      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-5 px-4 py-10">
+        <div className="rounded-3xl border border-white/10 bg-ink-2/80 p-5 text-center shadow-2xl">
+          <p className="text-[11px] tracking-[0.3em] text-gold/80 uppercase">Table code</p>
+          <p className="font-display mt-1 text-6xl tracking-[0.15em] text-cream">{state.code}</p>
           <button
             type="button"
-            className="mt-3 inline-flex items-center gap-2 text-sm text-amber-200 hover:text-amber-100"
+            className="btn-ghost mt-4 w-full"
             onClick={async () => {
               await navigator.clipboard.writeText(share);
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
             }}
           >
-            <Link2 className="size-4" />
+            {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
             {copied ? "Link copied" : "Copy invite link"}
           </button>
-          <ul className="mt-6 space-y-2">
+
+          <ul className="mt-5 space-y-1.5 text-left">
             {state.lobby.map((p) => (
-              <li key={p.id} className="flex items-center gap-2 text-cream">
-                <Users className="size-4 text-cream/50" />
-                {p.name}
+              <li
+                key={p.id}
+                className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-cream"
+              >
+                <Users className="size-4 shrink-0 text-cream/40" />
+                <span className="flex-1 truncate">{p.name}</span>
                 {p.id === state.hostId ? (
-                  <span className="text-xs text-amber-200/80">host</span>
+                  <span className="text-[10px] font-bold tracking-wide text-gold uppercase">host</span>
                 ) : null}
               </li>
             ))}
           </ul>
+
           {state.youId === state.hostId ? (
-            <button
-              type="button"
-              onClick={() => socketRef.current?.emit("start")}
-              className="mt-6 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-semibold text-ink hover:bg-amber-200"
-            >
-              Start the game
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => socketRef.current?.emit("start")}
+                className="btn-primary mt-5 w-full"
+              >
+                Start the game
+              </button>
+              <p className="mt-2 text-xs text-cream/45">
+                {state.lobby.length === 1
+                  ? "Solo works too — 6 rounds against the score table."
+                  : `${state.lobby.length} players · ${state.lobby.length >= 4 ? 4 : state.lobby.length === 3 ? 5 : 6} rounds`}
+              </p>
+            </>
           ) : (
-            <p className="mt-6 text-sm text-cream/60">Waiting for the host to start…</p>
+            <p className="mt-5 text-sm text-cream/60">Waiting for the host to start…</p>
           )}
         </div>
         <HowTo compact />
@@ -173,93 +189,183 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
   const mine = prompt?.playerId === snap.youId;
   const [viewId, setViewId] = useState(snap.youId);
   const viewed = game.players.find((p) => p.id === viewId) ?? me;
-  const pickDice = diceForPrompt(game);
-  const scores = game.players
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      total: totalScore(p.sheet),
-      areas: areaScores(p.sheet),
-    }))
-    .sort((a, b) => b.total - a.total);
+  const viewingSelf = viewed.id === snap.youId;
+  const active = game.players[game.activeIndex];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-4 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs tracking-[0.25em] text-amber-200/70 uppercase">
-            Table {snap.code} · Round {game.round}/{game.totalRounds} · Active{" "}
-            {game.players[game.activeIndex]?.name}
-          </p>
-          <h1 className="font-display text-3xl text-cream">Pretty Clever</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {game.players.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setViewId(p.id)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                viewId === p.id ? "bg-amber-300 text-ink" : "bg-white/10 text-cream"
-              }`}
-            >
-              {p.name} · {totalScore(p.sheet)}
-            </button>
-          ))}
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="pt-safe shrink-0 border-b border-white/10 bg-ink/85 backdrop-blur">
+        <div className="mx-auto w-full max-w-6xl px-3 pb-2">
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <div className="min-w-0">
+              <h1 className="font-display truncate text-lg leading-tight text-cream sm:text-xl">
+                Pretty Clever
+              </h1>
+              <p className="truncate text-[11px] text-cream/50">
+                Table {snap.code} · Round {game.round}/{game.totalRounds} ·{" "}
+                {game.status === "finished" ? "finished" : `${active?.name}'s turn`}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-cream/70">
+              <Pill label="🦊" value={me.sheet.foxes} />
+              <Pill label="+die" value={extraDieLeft(me.sheet)} />
+              <Pill label="↻" value={rerollsLeft(me.sheet)} />
+            </div>
+          </div>
+
+          <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
+            {game.players.map((p) => {
+              const isActive = p.id === active?.id;
+              const isWaiting = prompt?.playerId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setViewId(p.id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition",
+                    viewId === p.id ? "bg-gold text-ink" : "bg-white/8 text-cream/80",
+                  )}
+                >
+                  {isWaiting ? <span className="size-1.5 rounded-full bg-current" /> : null}
+                  <span className="max-w-24 truncate">{p.name}</span>
+                  <span className={cn(viewId === p.id ? "text-ink/60" : "text-cream/45")}>
+                    {totalScore(p.sheet)}
+                  </span>
+                  {isActive ? <span aria-label="active player">🎲</span> : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
 
-      <PromptBar
-        game={game}
-        prompt={prompt}
-        mine={mine}
-        youId={snap.youId}
-        pickDice={pickDice}
-        onAction={onAction}
-      />
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-6xl gap-4 px-2 py-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 space-y-3">
+            {!viewingSelf ? (
+              <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                <span className="truncate text-cream/80">Viewing {viewed.name}&apos;s sheet</span>
+                <button
+                  type="button"
+                  onClick={() => setViewId(snap.youId)}
+                  className="shrink-0 text-xs font-bold text-gold"
+                >
+                  Back to mine
+                </button>
+              </div>
+            ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <ScoreSheet
-          sheet={viewed.sheet}
-          prompt={mine && viewed.id === snap.youId ? prompt : null}
-          onYellow={(index) => onAction({ type: "yellow-cell", index })}
-          onBlue={(index) => onAction({ type: "blue-cell", index })}
-        />
-        <aside className="space-y-3">
-          <div className="rounded-2xl border border-white/10 bg-ink-2/80 p-4">
-            <p className="text-xs tracking-wide text-cream/50 uppercase">You</p>
-            <p className="text-cream">
-              Extra dice {extraDieLeft(me.sheet)} · Rerolls {rerollsLeft(me.sheet)} · Foxes{" "}
-              {me.sheet.foxes}
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-amber-200">{totalScore(me.sheet)}</p>
+            <ScoreSheet
+              sheet={viewed.sheet}
+              prompt={mine && viewingSelf ? prompt : null}
+              onYellow={(index) => onAction({ type: "yellow-cell", index })}
+              onBlue={(index) => onAction({ type: "blue-cell", index })}
+            />
           </div>
-          {game.status === "finished" ? (
-            <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4">
-              <p className="font-display text-xl text-amber-100">Final tally</p>
-              <ol className="mt-2 space-y-1 text-sm text-cream">
-                {scores.map((s, i) => (
-                  <li key={s.id}>
-                    {i + 1}. {s.name} — {s.total}
-                    <span className="block text-xs text-cream/50">
-                      Y {s.areas.yellow} · B {s.areas.blue} · G {s.areas.green} · O {s.areas.orange}{" "}
-                      · P {s.areas.purple}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ) : null}
-          <div className="rounded-2xl border border-white/10 bg-ink-2/70 p-4">
-            <p className="text-xs tracking-wide text-cream/50 uppercase">Table talk</p>
-            <ul className="mt-2 max-h-56 space-y-1 overflow-auto text-xs text-cream/70">
-              {[...game.log].reverse().map((e) => (
-                <li key={e.id}>{e.text}</li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+
+          <aside className="mt-3 space-y-3 lg:mt-0">
+            {game.status === "finished" ? <FinalTally game={game} /> : null}
+            <TableDice game={game} />
+            <LogPanel game={game} />
+          </aside>
+        </div>
+      </main>
+
+      <footer className="pb-safe shrink-0 border-t border-white/10 bg-ink-2/95 backdrop-blur">
+        <div className="mx-auto w-full max-w-6xl px-3 pt-2.5">
+          <PromptBar
+            game={game}
+            prompt={prompt}
+            mine={mine}
+            youId={snap.youId}
+            pickDice={diceForPrompt(game)}
+            onAction={onAction}
+          />
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Pill({ label, value }: { label: string; value: number }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2 py-1 tabular-nums",
+        value > 0 ? "bg-gold/15 text-gold" : "bg-white/5 text-cream/35",
+      )}
+    >
+      {label} {value}
+    </span>
+  );
+}
+
+function TableDice({ game }: { game: GameState }) {
+  const strip = (dice: Die[], muted?: boolean) =>
+    dice.length ? (
+      <div className="flex flex-wrap gap-1">
+        {dice.map((d, i) => (
+          <DieFace key={`${d.id}-${i}`} color={d.color} value={d.value} size="sm" className={muted ? "opacity-60" : ""} />
+        ))}
       </div>
+    ) : (
+      <span className="text-xs text-cream/35">empty</span>
+    );
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-ink-2/70 p-3">
+      <p className="text-[11px] font-bold tracking-wide text-cream/45 uppercase">On the table</p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-cream/70">Kept ({game.dice.chosen.length}/3)</p>
+          {strip(game.dice.chosen)}
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-cream/70">Silver platter</p>
+          {strip(game.dice.platter, true)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LogPanel({ game }: { game: GameState }) {
+  return (
+    <details className="rounded-2xl border border-white/10 bg-ink-2/70 p-3" open>
+      <summary className="cursor-pointer list-none text-[11px] font-bold tracking-wide text-cream/45 uppercase">
+        Table talk
+      </summary>
+      <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs leading-relaxed text-cream/65">
+        {[...game.log].reverse().map((e) => (
+          <li key={e.id}>{e.text}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function FinalTally({ game }: { game: GameState }) {
+  const scores = game.players
+    .map((p) => ({ id: p.id, name: p.name, total: totalScore(p.sheet), areas: areaScores(p.sheet) }))
+    .sort((a, b) => b.total - a.total);
+
+  return (
+    <div className="pop-in rounded-2xl border border-gold/30 bg-gold/10 p-4">
+      <p className="font-display text-xl text-gold">Final tally</p>
+      <ol className="mt-2 space-y-2">
+        {scores.map((s, i) => (
+          <li key={s.id} className="text-sm text-cream">
+            <span className="font-bold">
+              {i + 1}. {s.name} — {s.total}
+            </span>
+            <span className="mt-0.5 block text-[11px] text-cream/50">
+              Y {s.areas.yellow} · B {s.areas.blue} · G {s.areas.green} · O {s.areas.orange} · P{" "}
+              {s.areas.purple}
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -276,197 +382,211 @@ function PromptBar({
   prompt: Prompt | null;
   mine: boolean;
   youId: string;
-  pickDice: ReturnType<typeof diceForPrompt>;
+  pickDice: Die[];
   onAction: (a: ClientAction) => void;
 }) {
   const waiter = game.players.find((p) => p.id === prompt?.playerId);
+  const me = game.players.find((p) => p.id === youId)!;
+  const allDice = [...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter];
+
   if (game.status === "finished") {
     return (
-      <div className="rounded-2xl bg-amber-300 px-4 py-3 text-sm font-semibold text-ink">
-        Game over. Compare sheets — foxes score your lowest color, times the number of foxes.
-      </div>
+      <Dock title="Game over">
+        <p className="text-sm text-cream/70">
+          Each fox scored your lowest color. Scroll up for the final tally.
+        </p>
+      </Dock>
     );
   }
   if (!prompt) return null;
+
   if (!mine) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-cream/80">
-        Waiting on {waiter?.name ?? "a player"}…
-      </div>
+      <Dock title={`Waiting on ${waiter?.name ?? "a player"}…`} muted>
+        <p className="text-sm text-cream/55">Tap a name above to watch their sheet fill up.</p>
+      </Dock>
     );
   }
 
   if (prompt.kind === "round-bonus") {
     if (prompt.round === 2) {
       return (
-        <ActionCard title="Round 2 bonus — bank a reroll">
-          <button className="btn-primary" onClick={() => onAction({ type: "claim-round", choice: "reroll" })}>
-            Take the reroll
+        <Dock title="Round 2 bonus">
+          <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "reroll" })}>
+            <RotateCcw className="size-4" /> Bank a reroll
           </button>
-        </ActionCard>
+        </Dock>
       );
     }
     if (prompt.round === 4) {
       return (
-        <ActionCard title="Round 4 — pick one">
-          <button className="btn-primary" onClick={() => onAction({ type: "claim-round", choice: "x" })}>
-            Free X (yellow, blue, or green)
+        <Dock title="Round 4 bonus — pick one">
+          <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "x" })}>
+            Free ✕
           </button>
-          <button className="btn-ghost" onClick={() => onAction({ type: "claim-round", choice: "six" })}>
-            Write a 6 (orange or purple)
+          <button className="btn-ghost flex-1" onClick={() => onAction({ type: "claim-round", choice: "six" })}>
+            Write a 6
           </button>
-        </ActionCard>
+        </Dock>
       );
     }
     return (
-      <ActionCard title={`Round ${prompt.round} bonus — bank an extra die`}>
-        <button className="btn-primary" onClick={() => onAction({ type: "claim-round", choice: "extra" })}>
-          Take the extra die
+      <Dock title={`Round ${prompt.round} bonus`}>
+        <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "extra" })}>
+          Bank an extra die
         </button>
-      </ActionCard>
+      </Dock>
     );
   }
 
   if (prompt.kind === "pick-die" && prompt.source === "active" && game.dice.rolled.length === 0) {
     return (
-      <ActionCard title={`Roll ${game.rollsUsed + 1} of 3 — ${game.dice.pool.length} dice left`}>
-        <button className="btn-primary" onClick={() => onAction({ type: "roll" })}>
-          Roll
+      <Dock title={`Roll ${game.rollsUsed + 1} of 3 · ${game.dice.pool.length} dice in hand`}>
+        <button className="btn-primary flex-1" onClick={() => onAction({ type: "roll" })}>
+          Roll the dice
         </button>
-      </ActionCard>
+      </Dock>
     );
   }
 
   if (prompt.kind === "pick-die") {
-    const me = game.players.find((p) => p.id === youId)!;
+    const title =
+      prompt.source === "active"
+        ? "Pick a die — everything lower goes to the platter"
+        : prompt.source === "extra"
+          ? "Extra die — one per color this turn"
+          : prompt.source === "passive-platter"
+            ? "Silver platter — take one"
+            : "Nothing fits the platter — take one of the kept dice";
     return (
-      <ActionCard
-        title={
-          prompt.source === "active"
-            ? `Choose a die (roll ${game.rollsUsed}/3)`
-            : prompt.source === "extra"
-              ? "Extra die — rolled dice not on the platter (same color only once this turn)"
-              : prompt.source === "passive-platter"
-                ? "Silver platter — pick one leftover die"
-                : "No platter die fits — pick from the chosen dice"
-        }
-      >
-        <DiceTray
-          dice={pickDice}
-          sheet={me.sheet}
-          allDice={[...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter]}
-          extraUsed={me.extraUsedThisTurn}
-          source={prompt.source}
-          onPick={(id, score) => onAction({ type: "pick-die", dieId: id, score })}
-        />
-        {prompt.source === "active" && rerollsLeft(me.sheet) > 0 && game.dice.rolled.length > 0 ? (
-          <button className="btn-ghost" onClick={() => onAction({ type: "reroll" })}>
-            Spend reroll ({rerollsLeft(me.sheet)} left)
-          </button>
-        ) : null}
-        {prompt.allowPass ? (
-          <button className="btn-ghost" onClick={() => onAction({ type: "pass" })}>
-            Pass
-          </button>
-        ) : null}
-        {prompt.source === "active" ? (
-          <p className="w-full text-xs text-cream/50">
-            Dice lower than your pick go to the silver platter. Chosen:{" "}
-            {game.dice.chosen.map((d) => `${d.color[0]}${d.value}`).join(" ") || "—"} · Platter:{" "}
-            {game.dice.platter.map((d) => `${d.color[0]}${d.value}`).join(" ") || "—"}
-          </p>
-        ) : null}
-      </ActionCard>
+      <Dock title={title}>
+        <div className="w-full space-y-2">
+          <DiceTray
+            dice={pickDice}
+            sheet={me.sheet}
+            allDice={allDice}
+            extraUsed={me.extraUsedThisTurn}
+            source={prompt.source}
+            onPick={(id, score) => onAction({ type: "pick-die", dieId: id, score })}
+          />
+          <div className="flex gap-2">
+            {prompt.source === "active" && rerollsLeft(me.sheet) > 0 && game.dice.rolled.length > 0 ? (
+              <button className="btn-ghost flex-1" onClick={() => onAction({ type: "reroll" })}>
+                <RotateCcw className="size-4" /> Reroll ({rerollsLeft(me.sheet)})
+              </button>
+            ) : null}
+            {prompt.allowPass ? (
+              <button className="btn-ghost flex-1" onClick={() => onAction({ type: "pass" })}>
+                Pass
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </Dock>
     );
   }
 
   if (prompt.kind === "white-color") {
-    const me = game.players.find((p) => p.id === youId)!;
-    const legal = legalWhiteColors(
-      me.sheet,
-      prompt.value,
-      [...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter],
-    );
+    const legal = legalWhiteColors(me.sheet, prompt.value, allDice);
     return (
-      <ActionCard title={`White ${prompt.value} is wild — pick a color`}>
-        {legal.map((c) => (
-          <button
-            key={c}
-            className="btn-ghost capitalize"
-            onClick={() => onAction({ type: "white-color", color: c })}
-          >
-            {c}
-          </button>
-        ))}
-      </ActionCard>
+      <Dock title={`White ${prompt.value} is wild — use it as`}>
+        <div className="flex w-full flex-wrap gap-2">
+          {legal.map((c) => (
+            <button
+              key={c}
+              className="btn-ghost flex-1 capitalize"
+              onClick={() => onAction({ type: "white-color", color: c })}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </Dock>
     );
   }
 
   if (prompt.kind === "yellow-cell") {
     return (
-      <ActionCard title={prompt.value === "any" ? "Bonus X — tap any open yellow box" : `Tap a yellow ${prompt.value}`}>
-        <p className="text-xs text-cream/60">Matching boxes are highlighted on your sheet.</p>
-      </ActionCard>
+      <Dock
+        title={prompt.value === "any" ? "Bonus ✕ — tap any open yellow box" : `Tap a yellow ${prompt.value}`}
+        muted
+      >
+        <p className="text-sm text-cream/55">The playable boxes are outlined on your sheet.</p>
+      </Dock>
     );
   }
   if (prompt.kind === "blue-cell") {
     return (
-      <ActionCard
-        title={
-          prompt.value === "any"
-            ? "Bonus X — tap any open blue box"
-            : `Tap blue ${prompt.value} (white + blue)`
-        }
-      />
+      <Dock
+        title={prompt.value === "any" ? "Bonus ✕ — tap any open blue box" : `Tap blue ${prompt.value}`}
+        muted
+      >
+        <p className="text-sm text-cream/55">The playable boxes are outlined on your sheet.</p>
+      </Dock>
     );
   }
   if (prompt.kind === "x-pick") {
     return (
-      <ActionCard title="Free X — which color?">
-        <button className="btn-ghost" onClick={() => onAction({ type: "x-pick", color: "yellow" })}>
+      <Dock title="Free ✕ — which color?">
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "yellow" })}>
           Yellow
         </button>
-        <button className="btn-ghost" onClick={() => onAction({ type: "x-pick", color: "blue" })}>
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "blue" })}>
           Blue
         </button>
-        <button className="btn-ghost" onClick={() => onAction({ type: "x-pick", color: "green" })}>
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "green" })}>
           Green
         </button>
-      </ActionCard>
+      </Dock>
     );
   }
   if (prompt.kind === "six-pick") {
     return (
-      <ActionCard title="Write a 6">
-        <button className="btn-ghost" onClick={() => onAction({ type: "six-pick", color: "orange" })}>
+      <Dock title="Write a 6 in">
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "six-pick", color: "orange" })}>
           Orange
         </button>
-        <button className="btn-ghost" onClick={() => onAction({ type: "six-pick", color: "purple" })}>
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "six-pick", color: "purple" })}>
           Purple
         </button>
-      </ActionCard>
+      </Dock>
     );
   }
   if (prompt.kind === "extra-or-done") {
     return (
-      <ActionCard title="Spend an extra die, or finish">
-        <button className="btn-primary" onClick={() => onAction({ type: "use-extra" })}>
-          Extra die
+      <Dock title={`Extra dice available: ${extraDieLeft(me.sheet)}`}>
+        <button className="btn-primary flex-1" onClick={() => onAction({ type: "use-extra" })}>
+          Take an extra die
         </button>
-        <button className="btn-ghost" onClick={() => onAction({ type: "done-extra" })}>
-          I&apos;m done
+        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "done-extra" })}>
+          End turn
         </button>
-      </ActionCard>
+      </Dock>
     );
   }
   return null;
 }
 
-function ActionCard({ title, children }: { title: string; children?: React.ReactNode }) {
+function Dock({
+  title,
+  muted,
+  children,
+}: {
+  title: string;
+  muted?: boolean;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-amber-200/20 bg-ink-2 px-4 py-3">
-      <p className="text-sm font-semibold text-cream">{title}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">{children}</div>
+    <div className="pop-in pb-2">
+      <p
+        className={cn(
+          "mb-2 text-sm font-bold",
+          muted ? "text-cream/60" : "text-gold",
+        )}
+      >
+        {title}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -474,24 +594,23 @@ function ActionCard({ title, children }: { title: string; children?: React.React
 function HowTo({ compact }: { compact?: boolean }) {
   return (
     <details
-      className="rounded-2xl border border-white/10 bg-ink-2/50 p-4 text-sm text-cream/75"
+      className="rounded-2xl border border-white/10 bg-ink-2/50 p-4 text-sm text-cream/70"
       open={!compact}
     >
       <summary className="cursor-pointer font-semibold text-cream">How the table works</summary>
       <div className="mt-3 space-y-2 text-pretty leading-relaxed">
         <p>
-          On your turn you roll, pick one die to score, then dump every lower die onto the silver
-          platter. Repeat up to three times. Friends each take one platter die from your leftovers.
-          Solo, you also score one leftover from that same platter.
+          On your turn you roll, keep one die to score, then every lower die drops onto the silver
+          platter. Up to three rolls. Afterwards each friend takes one die off that platter.
         </p>
         <p>
-          White is wild. Blue always scores white + blue, wherever those two dice currently sit.
-          Green must meet the next threshold. Orange writes the pips (watch the ×2 / ×3 boxes).
-          Purple must climb, then any number after a 6.
+          White is wild. Blue always scores white + blue. Green must meet the next threshold. Orange
+          writes the pips — the ×2 and ×3 boxes multiply. Purple has to climb, and anything may
+          follow a 6.
         </p>
         <p>
-          Bonuses chain immediately. Extra dice and rerolls can be saved. Foxes multiply your
-          lowest color at the end — don&apos;t leave a zero.
+          Bonuses fire the moment you fill their box and can chain. Foxes are worth your lowest
+          color at the end, so never leave a color on zero.
         </p>
       </div>
     </details>

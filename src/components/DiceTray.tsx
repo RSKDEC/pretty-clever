@@ -1,26 +1,9 @@
 "use client";
 
+import { DieFace } from "@/components/Die";
 import { canScoreDie } from "@/lib/game/sheet";
 import type { Die, DieColor, Sheet } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
-
-const FACE: Record<number, string> = {
-  1: "⚀",
-  2: "⚁",
-  3: "⚂",
-  4: "⚃",
-  5: "⚄",
-  6: "⚅",
-};
-
-const TINT: Record<DieColor, string> = {
-  yellow: "bg-yellow text-yellow-ink",
-  blue: "bg-blue text-white",
-  green: "bg-green text-white",
-  orange: "bg-orange text-white",
-  purple: "bg-purple text-white",
-  white: "bg-white text-ink border border-ink/20",
-};
 
 export function DiceTray({
   dice,
@@ -38,43 +21,42 @@ export function DiceTray({
   onPick: (id: string, score: boolean) => void;
 }) {
   if (dice.length === 0) {
-    return <p className="text-sm text-cream/60">No dice here.</p>;
+    return <p className="text-sm text-cream/60">No dice available.</p>;
   }
+
   return (
-    <div className="flex w-full flex-wrap gap-2">
+    <div className="no-scrollbar -mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1">
       {dice.map((die) => {
-        const legal = canScoreDie(sheet, die, allDice);
-        const blockedExtra = source === "extra" && extraUsed.includes(die.color);
+        const fits = canScoreDie(sheet, die, allDice);
+        const usedColor = source === "extra" && extraUsed.includes(die.color);
+        // The active player may still take a die that fits nowhere; it just scores nothing.
+        const takeAnyway = source === "active" && !fits;
+        const disabled = usedColor || (!fits && !takeAnyway);
+
         return (
-          <div key={die.id} className="flex flex-col items-center gap-1">
-            <div
+          <button
+            key={die.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(die.id, fits)}
+            className={cn(
+              "flex min-w-[4.5rem] flex-col items-center gap-1.5 rounded-2xl border px-2 py-2 transition",
+              fits && !usedColor
+                ? "border-gold/60 bg-gold/10 active:scale-95"
+                : "border-white/10 bg-white/5",
+              disabled && "opacity-40",
+            )}
+          >
+            <DieFace color={die.color} value={die.value} size="lg" />
+            <span
               className={cn(
-                "flex size-14 flex-col items-center justify-center rounded-2xl shadow",
-                TINT[die.color],
-                blockedExtra && "opacity-40",
+                "text-[11px] font-bold tracking-wide uppercase",
+                fits && !usedColor ? "text-gold" : "text-cream/45",
               )}
             >
-              <span className="text-2xl leading-none">{FACE[die.value]}</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">{die.color[0]}</span>
-            </div>
-            <button
-              type="button"
-              disabled={!legal || blockedExtra}
-              onClick={() => onPick(die.id, true)}
-              className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-ink disabled:bg-white/10 disabled:text-cream/30"
-            >
-              Score
-            </button>
-            {source === "active" ? (
-              <button
-                type="button"
-                onClick={() => onPick(die.id, false)}
-                className="text-[10px] text-cream/50 hover:text-cream"
-              >
-                Lock only
-              </button>
-            ) : null}
-          </div>
+              {usedColor ? "used" : fits ? "score" : takeAnyway ? "no fit" : "—"}
+            </span>
+          </button>
         );
       })}
     </div>
