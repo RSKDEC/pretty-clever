@@ -1,0 +1,17 @@
+# Deploy to Render: connect this repo and use the Docker runtime,
+# or a Web Service with the settings below.
+# Requires a single always-on instance (rooms are in memory).
+
+services:
+  - type: web
+    name: pretty-clever
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 43147

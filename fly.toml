@@ -1,0 +1,20 @@
+# Deploy to Fly.io:  fly launch --no-deploy && fly deploy
+# Needs a long-running Node process (WebSockets). Do not use Vercel/Netlify.
+
+app = "pretty-clever"
+primary_region = "iad"
+
+[build]
+
+[http_service]
+  internal_port = 43147
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

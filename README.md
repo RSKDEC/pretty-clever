@@ -24,13 +24,37 @@ The layout is built for phones and tablets first: the sheet scrolls between a fi
 
 Rounds scale with player count: 6 (1–2 players), 5 (3), 4 (4).
 
+## Deploy
+
+This app needs a **long-running Node server** (Socket.IO). Plain static hosts and Vercel/Netlify will not work.
+
+### Fastest path for a friends table
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+Then put a tunnel in front of port `43147` (Cloudflare Tunnel, ngrok, etc.) and share the HTTPS URL.
+
+### Docker / Fly / Render
+
+```bash
+docker build -t pretty-clever .
+docker run --rm -p 43147:43147 pretty-clever
+```
+
+- **Fly.io** — `fly launch` / `fly deploy` (see `fly.toml`)
+- **Render** — Web Service with the Docker runtime (see `render.yaml`)
+
+Rooms live **in memory on one process**. Keep a single instance; a restart clears open tables. Rejoin the same code with the same name if you drop mid-game.
+
 ## Scripts
 
 - `npm run dev` — Next.js + Socket.IO on port 43147
 - `npm test` — scoring and turn-flow checks
 - `npm run build` / `npm start` — production
-
-Rooms live in memory on the server process. Restarting the server clears open tables. If you drop off mid-game, rejoin the same code with the same name to take your seat back.
 
 ## Fidelity note
 
