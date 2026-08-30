@@ -40,7 +40,7 @@ export function ScoreSheet({
   const lowest = Math.min(...Object.values(areas));
 
   return (
-    <div className="rounded-3xl bg-sheet p-2.5 text-ink shadow-2xl sm:p-4">
+    <div className="w-full overflow-hidden rounded-3xl bg-sheet p-2.5 text-ink shadow-2xl sm:p-4">
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
         <p className="font-display text-xl sm:text-2xl">{totalScore(sheet)} points</p>
         <p className="text-xs text-ink/60 sm:text-sm">
@@ -49,7 +49,7 @@ export function ScoreSheet({
         </p>
       </div>
 
-      <div className="grid gap-2.5 md:grid-cols-2">
+      <div className="grid gap-2.5 md:grid-cols-2 [&>*]:min-w-0">
         <Area color="yellow" title="Yellow" score={areas.yellow} note="columns score · rows pay bonuses">
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
             {sheet.yellow.map((cell, i) => {
@@ -224,9 +224,9 @@ function Area({
 }) {
   const skin = SKIN[color];
   return (
-    <section className={cn("rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
+    <section className={cn("min-w-0 overflow-hidden rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className={cn("text-xs font-extrabold tracking-wide uppercase", skin.title)}>
+        <h2 className={cn("min-w-0 truncate text-xs font-extrabold tracking-wide uppercase", skin.title)}>
           {title}
           <span className="ml-2 font-medium normal-case opacity-60">{note}</span>
         </h2>
@@ -259,9 +259,9 @@ function Track({
 }) {
   const skin = SKIN[color];
   return (
-    <section className={cn("mt-2.5 rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
+    <section className={cn("mt-2.5 min-w-0 rounded-2xl p-2.5 sm:p-3", skin.wrap)}>
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className={cn("text-xs font-extrabold tracking-wide uppercase", skin.title)}>
+        <h2 className={cn("min-w-0 truncate text-xs font-extrabold tracking-wide uppercase", skin.title)}>
           {title}
           <span className="ml-2 font-medium normal-case opacity-60">{note}</span>
         </h2>

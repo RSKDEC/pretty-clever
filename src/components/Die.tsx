@@ -44,7 +44,7 @@ export function DieFace({
   const box = {
     sm: "size-8 rounded-lg p-1",
     md: "size-12 rounded-xl p-1.5",
-    lg: "size-14 rounded-2xl p-2 sm:size-16",
+    lg: "size-12 rounded-xl p-1.5 sm:size-14 sm:rounded-2xl sm:p-2",
   }[size];
 
   return (

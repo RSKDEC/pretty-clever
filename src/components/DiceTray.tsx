@@ -40,7 +40,7 @@ export function DiceTray({
             disabled={disabled}
             onClick={() => onPick(die.id, fits)}
             className={cn(
-              "flex min-w-[4.5rem] flex-col items-center gap-1.5 rounded-2xl border px-2 py-2 transition",
+              "flex min-w-[4rem] shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 transition sm:min-w-[4.5rem] sm:gap-1.5 sm:py-2",
               fits && !usedColor
                 ? "border-gold/60 bg-gold/10 active:scale-95"
                 : "border-white/10 bg-white/5",

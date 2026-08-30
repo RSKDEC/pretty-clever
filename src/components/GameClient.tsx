@@ -240,7 +240,7 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-6xl gap-4 px-2 py-3 sm:px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 space-y-3">
             {!viewingSelf ? (
