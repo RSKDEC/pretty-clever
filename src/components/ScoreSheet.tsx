@@ -83,7 +83,7 @@ export function ScoreSheet({
             ))}
           </div>
           <p className="mt-1 text-[11px] text-ink/55">
-            Row bonuses: {YELLOW_ROW_BONUSES.map(bonusLabel).join(" · ")} · diagonal extra die
+            Row bonuses: {YELLOW_ROW_BONUSES.map(bonusLabel).join(" · ")} · diagonal fox
           </p>
           <p className="mt-1 text-sm font-semibold">{areas.yellow} pts</p>
         </section>

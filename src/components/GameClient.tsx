@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { DiceTray } from "@/components/DiceTray";
 import { ScoreSheet } from "@/components/ScoreSheet";
 import { diceForPrompt } from "@/lib/game/engine";
-import { areaScores, extraDieLeft, rerollsLeft, totalScore } from "@/lib/game/sheet";
+import { areaScores, extraDieLeft, legalWhiteColors, rerollsLeft, totalScore } from "@/lib/game/sheet";
 import type { ClientAction, GameState, Prompt } from "@/lib/game/types";
 import { Link2, Users } from "lucide-react";
 
@@ -20,7 +20,7 @@ type Snap = {
 };
 
 export function GameClient({ initialCode }: { initialCode?: string }) {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const [name, setName] = useState("");
   const [joinCode, setJoinCode] = useState(initialCode ?? "");
   const [state, setState] = useState<Snap | null>(null);
@@ -29,18 +29,19 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
 
   useEffect(() => {
     const s = io({ path: "/socket.io" });
-    setSocket(s);
+    socketRef.current = s;
     s.on("state", (next: Snap) => {
       setState(next);
       setError(null);
     });
     return () => {
       s.close();
+      socketRef.current = null;
     };
   }, []);
 
   function create() {
-    socket?.emit("create", { name }, (res: Snap & { error?: string }) => {
+    socketRef.current?.emit("create", { name }, (res: Snap & { error?: string }) => {
       if (res?.error) setError(res.error);
       else {
         setState(res);
@@ -50,7 +51,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
   }
 
   function join() {
-    socket?.emit("join", { code: joinCode, name }, (res: Snap & { error?: string }) => {
+    socketRef.current?.emit("join", { code: joinCode, name }, (res: Snap & { error?: string }) => {
       if (res?.error) setError(res.error);
       else {
         setState(res);
@@ -148,7 +149,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
           {state.youId === state.hostId ? (
             <button
               type="button"
-              onClick={() => socket?.emit("start")}
+              onClick={() => socketRef.current?.emit("start")}
               className="mt-6 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-semibold text-ink hover:bg-amber-200"
             >
               Start the game
@@ -162,7 +163,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
     );
   }
 
-  return <Play snap={state} onAction={(action) => socket?.emit("action", action)} />;
+  return <Play snap={state} onAction={(action) => socketRef.current?.emit("action", action)} />;
 }
 
 function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => void }) {
@@ -344,7 +345,7 @@ function PromptBar({
           prompt.source === "active"
             ? `Choose a die (roll ${game.rollsUsed}/3)`
             : prompt.source === "extra"
-              ? "Extra die — pick any die, each color once this turn"
+              ? "Extra die — rolled dice not on the platter (same color only once this turn)"
               : prompt.source === "passive-platter"
                 ? "Silver platter — pick one leftover die"
                 : "No platter die fits — pick from the chosen dice"
@@ -380,9 +381,15 @@ function PromptBar({
   }
 
   if (prompt.kind === "white-color") {
+    const me = game.players.find((p) => p.id === youId)!;
+    const legal = legalWhiteColors(
+      me.sheet,
+      prompt.value,
+      [...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter],
+    );
     return (
       <ActionCard title={`White ${prompt.value} is wild — pick a color`}>
-        {(["yellow", "blue", "green", "orange", "purple"] as const).map((c) => (
+        {legal.map((c) => (
           <button
             key={c}
             className="btn-ghost capitalize"
@@ -475,6 +482,7 @@ function HowTo({ compact }: { compact?: boolean }) {
         <p>
           On your turn you roll, pick one die to score, then dump every lower die onto the silver
           platter. Repeat up to three times. Friends each take one platter die from your leftovers.
+          Solo, you also score one leftover from that same platter.
         </p>
         <p>
           White is wild. Blue always scores white + blue, wherever those two dice currently sit.

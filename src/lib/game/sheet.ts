@@ -1,22 +1,26 @@
 import type { AreaColor, Bonus, Die, DieColor, Sheet } from "./types";
 
+/**
+ * 4x4 grid. Each value 1-6 appears exactly twice; the anti-diagonal is
+ * pre-crossed, which leaves the main diagonal open for its bonus.
+ */
 export const YELLOW_VALUES: (number | "pre")[] = [
   3, 6, 5, "pre",
   2, 1, "pre", 5,
-  1, 2, 3, 4,
+  1, "pre", 2, 4,
   "pre", 3, 4, 6,
 ];
 
 export const YELLOW_COL_SCORES = [10, 14, 16, 20];
 
 export const YELLOW_ROW_BONUSES: (Bonus | null)[] = [
+  { type: "blueX" },
   { type: "extraDie" },
-  { type: "fox" },
-  { type: "extraDie" },
-  { type: "fox" },
+  { type: "greenX" },
+  { type: "reroll" },
 ];
 
-export const YELLOW_DIAGONAL_BONUS: Bonus = { type: "extraDie" };
+export const YELLOW_DIAGONAL_BONUS: Bonus = { type: "fox" };
 
 export const BLUE_NUMBERS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
