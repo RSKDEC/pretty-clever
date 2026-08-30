@@ -13,6 +13,8 @@ npm run dev
 
 Open [http://localhost:43147](http://localhost:43147). One person opens a table, everyone else joins with the four-letter code (or the `/r/CODE` link). You can also start a solo table and take both the active turn and the silver-platter leftover.
 
+The layout is built for phones and tablets first: the sheet scrolls between a fixed header and an action dock that keeps the current decision within thumb reach, and it opens into two columns from tablet width up.
+
 ## How a turn works
 
 1. The active player rolls up to three times. After each roll they score one die. Every remaining die showing a **lower** value goes to the silver platter and is gone for the rest of their turn.
@@ -28,4 +30,8 @@ Rounds scale with player count: 6 (1–2 players), 5 (3), 4 (4).
 - `npm test` — scoring and turn-flow checks
 - `npm run build` / `npm start` — production
 
-Rooms live in memory on the server process. Restarting the server clears open tables.
+Rooms live in memory on the server process. Restarting the server clears open tables. If you drop off mid-game, rejoin the same code with the same name to take your seat back.
+
+## Fidelity note
+
+Scoring, the silver platter, the wild white die, round bonuses, and the five-fox ceiling follow the printed rules. The exact square each bonus icon sits on is reconstructed rather than copied from the pad, so a few bonuses may sit one box away from your physical copy.

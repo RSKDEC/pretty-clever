@@ -461,6 +461,12 @@ function PromptBar({
     return (
       <Dock title={title}>
         <div className="w-full space-y-2">
+          {prompt.source === "active" ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-cream/45 lg:hidden">
+              <MiniStrip label={`Kept ${game.dice.chosen.length}/3`} dice={game.dice.chosen} />
+              <MiniStrip label="Platter" dice={game.dice.platter} />
+            </div>
+          ) : null}
           <DiceTray
             dice={pickDice}
             sheet={me.sheet}
@@ -565,6 +571,21 @@ function PromptBar({
     );
   }
   return null;
+}
+
+function MiniStrip({ label, dice }: { label: string; dice: Die[] }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="font-semibold">{label}</span>
+      {dice.length ? (
+        dice.map((d, i) => (
+          <DieFace key={`${d.id}-${i}`} color={d.color} value={d.value} size="sm" className="size-6 p-0.5" />
+        ))
+      ) : (
+        <span className="opacity-60">—</span>
+      )}
+    </span>
+  );
 }
 
 function Dock({
