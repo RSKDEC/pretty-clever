@@ -16,6 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOST=0.0.0.0
+# Local `docker run -p 43147:43147`. Render injects PORT and overrides this.
 ENV PORT=43147
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force

@@ -1,17 +1,25 @@
-# Deploy to Render: connect this repo and use the Docker runtime,
-# or a Web Service with the settings below.
-# Requires a single always-on instance (rooms are in memory).
+# Render Blueprint for a single long-running Node + Socket.IO process.
+#
+# Render clones GitHub, GitLab, or Bitbucket — not an Origin git URL.
+# Publish this project to GitHub first (Cursor → Create repo), then:
+#   Dashboard → New → Blueprint → select the repo
+# or New → Web Service → Docker → this Dockerfile.
+#
+# Rooms are in memory. Keep exactly one instance. A restart or Free-plan
+# spin-down wipes every open table.
 
 services:
   - type: web
     name: pretty-clever
     runtime: docker
     plan: free
+    numInstances: 1
     healthCheckPath: /
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
       - key: HOST
         value: 0.0.0.0
-      - key: PORT
-        value: 43147
+      # Render injects PORT (usually 10000). server.ts listens on $PORT.
+      # Do not add a second PORT override, and do not raise instance count.
