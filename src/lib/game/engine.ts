@@ -649,9 +649,11 @@ function promptPassive(state: Internal, index: number) {
   const all = allCurrentDice(state.dice);
   const platterUsable = state.dice.platter.some((d) => canScoreDie(p.sheet, d, all));
   const source = platterUsable ? "passive-platter" : "passive-chosen";
+  const chosenUsable =
+    platterUsable || unique(state.dice.chosen).some((d) => canScoreDie(p.sheet, d, all));
   state.resume = { kind: "after-passive-or-extra", source };
-  state.prompt = { kind: "pick-die", playerId: p.id, source, allowPass: true };
-  log(state, `${p.name} scores off the ${platterUsable ? "silver platter" : "chosen dice"}.`);
+  state.prompt = { kind: "pick-die", playerId: p.id, source, allowPass: !chosenUsable };
+  log(state, `${p.name} scores off the ${platterUsable ? "silver platter" : "active player's dice"}.`);
 }
 
 function startSoloPassive(state: Internal) {

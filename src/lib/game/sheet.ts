@@ -49,16 +49,16 @@ export const GREEN_MIN = [1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1];
 export const GREEN_SCORES = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66];
 export const GREEN_BONUSES: (Bonus | null)[] = [
   null,
-  { type: "extraDie" },
   null,
+  { type: "reroll" },
+  { type: "orangeN", value: 4 },
+  { type: "extraDie" },
   { type: "fox" },
+  null,
   { type: "extraDie" },
   { type: "reroll" },
-  { type: "extraDie" },
-  { type: "fox" },
-  { type: "extraDie" },
   null,
-  { type: "fox" },
+  { type: "purpleN", value: 6 },
 ];
 
 export const ORANGE_MULT = [1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 3];
@@ -66,27 +66,27 @@ export const ORANGE_BONUSES: (Bonus | null)[] = [
   null,
   { type: "extraDie" },
   null,
-  { type: "fox" },
   { type: "reroll" },
-  null,
-  { type: "extraDie" },
-  null,
   { type: "yellowX" },
   null,
   { type: "fox" },
+  null,
+  { type: "extraDie" },
+  null,
+  { type: "extraDie" },
 ];
 
 export const PURPLE_BONUSES: (Bonus | null)[] = [
   null,
   null,
   { type: "extraDie" },
+  { type: "blueX" },
   { type: "reroll" },
   { type: "extraDie" },
   { type: "fox" },
-  { type: "extraDie" },
   { type: "reroll" },
   { type: "extraDie" },
-  { type: "fox" },
+  { type: "greenX" },
   { type: "extraDie" },
 ];
 

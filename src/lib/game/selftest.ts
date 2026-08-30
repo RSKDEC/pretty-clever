@@ -2,13 +2,20 @@ import assert from "node:assert/strict";
 import { applyAction, createGame } from "./engine";
 import {
   areaScores,
+  BLUE_COL_GROUPS,
+  BLUE_ROW_BONUSES,
   canMarkPurple,
   emptySheet,
   extraDieLeft,
   foxScore,
+  GREEN_BONUSES,
   GREEN_MIN,
+  ORANGE_BONUSES,
   orangeScore,
+  PURPLE_BONUSES,
   totalScore,
+  YELLOW_DIAGONAL_BONUS,
+  YELLOW_ROW_BONUSES,
   YELLOW_VALUES,
   yellowScore,
 } from "./sheet";
@@ -158,7 +165,25 @@ if (green.prompt?.kind === "white-color") {
   green = applyAction(green, "a", { type: "white-color", color: "green" });
 }
 assert.equal(green.players[0]!.sheet.green, 2);
-assert.equal(green.players[0]!.sheet.extraDie, extrasBefore + 1, "second green box awards an extra die");
+const secondGreenBonus = GREEN_BONUSES[1];
+assert.equal(
+  green.players[0]!.sheet.extraDie,
+  extrasBefore + (secondGreenBonus?.type === "extraDie" ? 1 : 0),
+  "crossing a green box pays exactly the bonus printed under it",
+);
+
+/** The printed pad has one fox per color area, so a sheet can hold at most five. */
+const foxBudget =
+  [
+    ...YELLOW_ROW_BONUSES,
+    YELLOW_DIAGONAL_BONUS,
+    ...BLUE_ROW_BONUSES,
+    ...BLUE_COL_GROUPS.map((g) => g.bonus),
+    ...GREEN_BONUSES,
+    ...ORANGE_BONUSES,
+    ...PURPLE_BONUSES,
+  ].filter((b) => b?.type === "fox").length;
+assert.equal(foxBudget, 5, "exactly five foxes are reachable");
 
 let duo = createGame(
   [
