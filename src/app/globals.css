@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #14222b;
+  --foreground: #f4efe4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ink: #14222b;
+  --color-ink-2: #1c303c;
+  --color-cream: #f4efe4;
+  --color-sheet: #f7f1e4;
+  --color-yellow: #e8c547;
+  --color-yellow-ink: #5c4310;
+  --color-blue: #2f6f96;
+  --color-green: #2f8a64;
+  --color-orange: #d96a32;
+  --color-purple: #6f55b8;
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #2a4a3a 0%, transparent 50%),
+    radial-gradient(900px 400px at 110% 0%, #3a2a18 0%, transparent 45%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+}
+
+.btn-primary {
+  border-radius: 0.75rem;
+  background: #e8c547;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #14222b;
+}
+
+.btn-primary:hover {
+  background: #f0d36a;
+}
+
+.btn-ghost {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.15);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f4efe4;
+}
+
+.btn-ghost:hover {
+  background: rgb(255 255 255 / 0.06);
+}
