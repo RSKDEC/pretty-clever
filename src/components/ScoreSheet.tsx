@@ -2,6 +2,8 @@
 
 import {
   BLUE_NUMBERS,
+  BLUE_COL_GROUPS,
+  BLUE_ROW_BONUSES,
   BLUE_ROWS,
   BLUE_SCORES,
   GREEN_BONUSES,
@@ -12,6 +14,8 @@ import {
   PURPLE_BONUSES,
   TRACK_LEN,
   YELLOW_COL_SCORES,
+  YELLOW_DIAGONAL_BONUS,
+  YELLOW_ROW_BONUSES,
   areaScores,
   blueOptions,
   foxScore,
@@ -51,71 +55,93 @@ export function ScoreSheet({
 
       <div className="grid gap-2.5 md:grid-cols-2 [&>*]:min-w-0">
         <Area color="yellow" title="Yellow" score={areas.yellow} note="columns score · rows pay bonuses">
-          <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
-            {sheet.yellow.map((cell, i) => {
-              const hot = yellowHot.includes(i);
-              const pre = cell.value === "pre";
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={!hot}
-                  onClick={() => onYellow(i)}
+          <div className="space-y-1 sm:space-y-1.5">
+            {[0, 1, 2, 3].map((row) => (
+              <div key={row} className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-1">
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
+                  {sheet.yellow.slice(row * 4, row * 4 + 4).map((cell, offset) => {
+                    const i = row * 4 + offset;
+                    const hot = yellowHot.includes(i);
+                    const pre = cell.value === "pre";
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!hot}
+                        onClick={() => onYellow(i)}
+                        className={cn(
+                          "flex aspect-square items-center justify-center rounded-lg border text-base font-bold transition sm:text-lg",
+                          pre
+                            ? "border-yellow-ink/25 bg-yellow-ink/20 text-yellow-ink/40"
+                            : cell.marked
+                              ? "border-yellow-ink bg-yellow-ink text-sheet"
+                              : "border-yellow-ink/25 bg-white text-yellow-ink",
+                          hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
+                        )}
+                      >
+                        {pre ? "✕" : cell.marked ? "✕" : cell.value}
+                      </button>
+                    );
+                  })}
+                </div>
+                <BonusChip bonus={YELLOW_ROW_BONUSES[row]} label={`Row ${row + 1}`} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-[minmax(0,1fr)_2.25rem] gap-1">
+            <div className="grid grid-cols-4 gap-1 text-center sm:gap-1.5">
+              {YELLOW_COL_SCORES.map((s, c) => (
+                <span
+                  key={s}
                   className={cn(
-                    "flex aspect-square items-center justify-center rounded-lg border text-base font-bold transition sm:text-lg",
-                    pre
-                      ? "border-yellow-ink/25 bg-yellow-ink/20 text-yellow-ink/40"
-                      : cell.marked
-                        ? "border-yellow-ink bg-yellow-ink text-sheet"
-                        : "border-yellow-ink/25 bg-white text-yellow-ink",
-                    hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
+                    "rounded py-0.5 text-[11px] font-bold",
+                    yellowColComplete(sheet, c) ? "bg-yellow-ink text-sheet" : "text-yellow-ink/70",
                   )}
                 >
-                  {pre ? "✕" : cell.marked ? "✕" : cell.value}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-1 grid grid-cols-4 gap-1 text-center sm:gap-1.5">
-            {YELLOW_COL_SCORES.map((s, c) => (
-              <span
-                key={s}
-                className={cn(
-                  "rounded py-0.5 text-[11px] font-bold",
-                  yellowColComplete(sheet, c) ? "bg-yellow-ink text-sheet" : "text-yellow-ink/70",
-                )}
-              >
-                {s}
-              </span>
-            ))}
+                  {s}
+                </span>
+              ))}
+            </div>
+            <BonusChip bonus={YELLOW_DIAGONAL_BONUS} label="Diagonal" />
           </div>
         </Area>
 
         <Area color="blue" title="Blue" score={areas.blue} note="white + blue · any order">
           <div className="space-y-1 sm:space-y-1.5">
             {BLUE_ROWS.map((row, r) => (
-              <div key={r} className="flex gap-1 sm:gap-1.5">
-                {row.map((i) => {
-                  const hot = blueHot.includes(i);
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={!hot}
-                      onClick={() => onBlue(i)}
-                      className={cn(
-                        "h-11 flex-1 rounded-lg border text-sm font-bold transition sm:text-base",
-                        sheet.blue[i]
-                          ? "border-blue bg-blue text-white"
-                          : "border-blue/25 bg-white text-blue",
-                        hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
-                      )}
-                    >
-                      {BLUE_NUMBERS[i]}
-                    </button>
-                  );
-                })}
+              <div key={r} className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-1">
+                <div className="flex gap-1 sm:gap-1.5">
+                  {row.map((i) => {
+                    const hot = blueHot.includes(i);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!hot}
+                        onClick={() => onBlue(i)}
+                        className={cn(
+                          "h-11 flex-1 rounded-lg border text-sm font-bold transition sm:text-base",
+                          sheet.blue[i]
+                            ? "border-blue bg-blue text-white"
+                            : "border-blue/25 bg-white text-blue",
+                          hot && "ring-2 ring-ink ring-offset-1 ring-offset-sheet",
+                        )}
+                      >
+                        {BLUE_NUMBERS[i]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <BonusChip bonus={BLUE_ROW_BONUSES[r]} label={`Row ${r + 1}`} />
               </div>
+            ))}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1 overflow-x-auto text-[9px] font-semibold text-blue/70">
+            <span className="shrink-0">Columns:</span>
+            {BLUE_COL_GROUPS.map((group) => (
+              <span key={group.cells.join("-")} className="shrink-0 rounded bg-blue/10 px-1.5 py-1">
+                {group.cells.map((i) => BLUE_NUMBERS[i]).join("/")} {bonusLabel(group.bonus)}
+              </span>
             ))}
           </div>
           <div className="no-scrollbar mt-1.5 flex gap-1 overflow-x-auto text-[10px] font-semibold">
@@ -290,6 +316,18 @@ function Track({
         ))}
       </div>
     </section>
+  );
+}
+
+function BonusChip({ bonus, label }: { bonus: Bonus | null | undefined; label: string }) {
+  return (
+    <span
+      aria-label={`${label} bonus: ${bonusLabel(bonus)}`}
+      title={`${label} bonus`}
+      className="flex min-h-8 items-center justify-center rounded-md bg-white/65 px-1 text-[10px] font-extrabold text-ink/75"
+    >
+      {bonusLabel(bonus)}
+    </span>
   );
 }
 

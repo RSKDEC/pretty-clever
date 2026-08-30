@@ -1,4 +1,4 @@
-import type { AreaColor, Bonus, Die, DieColor, Sheet } from "./types";
+import type { AreaColor, Bonus, Die, DieColor, FinalResult, Sheet, TablePlayer } from "./types";
 
 /**
  * 4x4 grid. Each value 1-6 appears exactly twice; the anti-diagonal is
@@ -15,12 +15,12 @@ export const YELLOW_COL_SCORES = [10, 14, 16, 20];
 
 export const YELLOW_ROW_BONUSES: (Bonus | null)[] = [
   { type: "blueX" },
-  { type: "extraDie" },
+  { type: "orangeN", value: 4 },
   { type: "greenX" },
-  { type: "reroll" },
+  { type: "fox" },
 ];
 
-export const YELLOW_DIAGONAL_BONUS: Bonus = { type: "fox" };
+export const YELLOW_DIAGONAL_BONUS: Bonus = { type: "extraDie" };
 
 export const BLUE_NUMBERS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -32,61 +32,62 @@ export const BLUE_ROWS = [
 ];
 
 export const BLUE_ROW_BONUSES: Bonus[] = [
+  { type: "orangeN", value: 5 },
+  { type: "yellowX" },
   { type: "fox" },
-  { type: "extraDie" },
-  { type: "extraDie" },
 ];
 
 export const BLUE_COL_GROUPS: { cells: number[]; bonus: Bonus }[] = [
-  { cells: [0, 3, 7], bonus: { type: "yellowX" } },
+  { cells: [0, 3, 7], bonus: { type: "reroll" } },
   { cells: [1, 4, 8], bonus: { type: "greenX" } },
-  { cells: [2, 5, 9], bonus: { type: "orangeN", value: 5 } },
+  { cells: [2, 5, 9], bonus: { type: "purpleN", value: 6 } },
+  { cells: [6, 10], bonus: { type: "extraDie" } },
 ];
 
 export const BLUE_SCORES = [0, 1, 2, 4, 7, 11, 16, 22, 29, 37, 46, 56];
 
-export const GREEN_MIN = [1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1];
+export const GREEN_MIN = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6];
 export const GREEN_SCORES = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66];
 export const GREEN_BONUSES: (Bonus | null)[] = [
   null,
   null,
-  { type: "reroll" },
-  { type: "orangeN", value: 4 },
+  null,
   { type: "extraDie" },
+  null,
+  { type: "blueX" },
   { type: "fox" },
   null,
-  { type: "extraDie" },
+  { type: "purpleN", value: 6 },
   { type: "reroll" },
   null,
-  { type: "purpleN", value: 6 },
 ];
 
 export const ORANGE_MULT = [1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 3];
 export const ORANGE_BONUSES: (Bonus | null)[] = [
   null,
-  { type: "extraDie" },
   null,
   { type: "reroll" },
+  null,
   { type: "yellowX" },
+  { type: "extraDie" },
   null,
   { type: "fox" },
   null,
-  { type: "extraDie" },
+  { type: "purpleN", value: 6 },
   null,
-  { type: "extraDie" },
 ];
 
 export const PURPLE_BONUSES: (Bonus | null)[] = [
   null,
   null,
-  { type: "extraDie" },
-  { type: "blueX" },
   { type: "reroll" },
+  { type: "blueX" },
   { type: "extraDie" },
+  { type: "yellowX" },
   { type: "fox" },
   { type: "reroll" },
-  { type: "extraDie" },
   { type: "greenX" },
+  { type: "orangeN", value: 6 },
   { type: "extraDie" },
 ];
 
@@ -167,6 +168,46 @@ export function foxScore(sheet: Sheet): number {
 export function totalScore(sheet: Sheet): number {
   const a = areaScores(sheet);
   return a.yellow + a.blue + a.green + a.orange + a.purple + foxScore(sheet);
+}
+
+export function finalResults(players: TablePlayer[]): FinalResult[] {
+  const results = players.map((player) => {
+    const areas = areaScores(player.sheet);
+    const foxSubtotal = foxScore(player.sheet);
+    return {
+      id: player.id,
+      name: player.name,
+      rank: 0,
+      winner: false,
+      total: Object.values(areas).reduce((sum, score) => sum + score, 0) + foxSubtotal,
+      areas,
+      foxes: player.sheet.foxes,
+      foxSubtotal,
+      tieBreak: Math.max(...Object.values(areas)),
+    };
+  });
+  results.sort((a, b) => b.total - a.total || b.tieBreak - a.tieBreak);
+  results.forEach((result, index) => {
+    const previous = results[index - 1];
+    result.rank =
+      previous && previous.total === result.total && previous.tieBreak === result.tieBreak
+        ? previous.rank
+        : index + 1;
+    result.winner = result.rank === 1;
+  });
+  return results;
+}
+
+export function soloRating(total: number): string {
+  if (total > 280) return "You’re so clever!";
+  if (total >= 260) return "Are you Einstein?";
+  if (total >= 240) return "What a genius!";
+  if (total >= 220) return "Impressive!";
+  if (total >= 200) return "Hats off to you!";
+  if (total >= 180) return "Great result!";
+  if (total >= 160) return "That was pretty good.";
+  if (total >= 140) return "Not bad… you could do better.";
+  return "Try harder!";
 }
 
 export function extraDieLeft(sheet: Sheet): number {
@@ -277,4 +318,19 @@ export function roundsForPlayerCount(n: number): number {
   if (n >= 4) return 4;
   if (n === 3) return 5;
   return 6;
+}
+
+export function roundFourXOptions(sheet: Sheet): ("yellow" | "blue" | "green")[] {
+  const options: ("yellow" | "blue" | "green")[] = [];
+  if (yellowOptions(sheet, "any").length) options.push("yellow");
+  if (blueOptions(sheet, "any").length) options.push("blue");
+  if (sheet.green < TRACK_LEN) options.push("green");
+  return options;
+}
+
+export function roundFourSixOptions(sheet: Sheet): ("orange" | "purple")[] {
+  const options: ("orange" | "purple")[] = [];
+  if (nextOrangeIndex(sheet) !== -1) options.push("orange");
+  if (nextPurpleIndex(sheet) !== -1) options.push("purple");
+  return options;
 }

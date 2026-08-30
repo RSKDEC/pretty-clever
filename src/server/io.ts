@@ -1,6 +1,6 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
-import type { ClientAction, GameState } from "../lib/game/types";
+import { isClientAction, type GameState } from "../lib/game/types";
 import { applyAction, createGame } from "../lib/game/engine";
 
 export type Room = {
@@ -45,7 +45,12 @@ export function attachSocket(httpServer: ReturnType<typeof createServer>) {
   const io = new Server(httpServer, { path: "/socket.io" });
 
   io.on("connection", (socket) => {
-    socket.on("create", ({ name }: { name: string }, cb?: (v: unknown) => void) => {
+    socket.on("create", (payload: unknown, cb?: (v: unknown) => void) => {
+      if (!isCreatePayload(payload)) {
+        cb?.({ error: "Enter a valid player name." });
+        return;
+      }
+      const { name } = payload;
       const roomCode = code();
       const playerId = socket.id;
       const room: Room = {
@@ -62,7 +67,12 @@ export function attachSocket(httpServer: ReturnType<typeof createServer>) {
       emitRoom(io, room);
     });
 
-    socket.on("join", ({ code: roomCode, name }: { code: string; name: string }, cb?: (v: unknown) => void) => {
+    socket.on("join", (payload: unknown, cb?: (v: unknown) => void) => {
+      if (!isJoinPayload(payload)) {
+        cb?.({ error: "Enter a valid name and four-letter table code." });
+        return;
+      }
+      const { code: roomCode, name } = payload;
       const room = rooms.get(roomCode.trim().toUpperCase());
       if (!room) {
         cb?.({ error: "No table with that code." });
@@ -100,9 +110,9 @@ export function attachSocket(httpServer: ReturnType<typeof createServer>) {
       emitRoom(io, room);
     });
 
-    socket.on("action", (action: ClientAction) => {
+    socket.on("action", (action: unknown) => {
       const room = roomOf(socket.id);
-      if (!room?.game) return;
+      if (!room?.game || !isClientAction(action)) return;
       const pid = room.sockets.get(socket.id);
       if (!pid) return;
       room.game = applyAction(room.game, pid, action);
@@ -140,4 +150,25 @@ export function attachSocket(httpServer: ReturnType<typeof createServer>) {
 function sanitize(name: string) {
   const n = name.trim().slice(0, 18);
   return n || "Player";
+}
+
+function isCreatePayload(value: unknown): value is { name: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 1 &&
+    typeof (value as Record<string, unknown>).name === "string"
+  );
+}
+
+function isJoinPayload(value: unknown): value is { code: string; name: string } {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    Object.keys(record).length === 2 &&
+    typeof record.name === "string" &&
+    typeof record.code === "string" &&
+    /^[A-Za-z]{4}$/.test(record.code.trim())
+  );
 }

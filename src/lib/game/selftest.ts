@@ -1,210 +1,325 @@
 import assert from "node:assert/strict";
-import { applyAction, createGame } from "./engine";
+import { applyAction, canUseExtraAction, createGame, diceForPrompt } from "./engine";
 import {
-  areaScores,
   BLUE_COL_GROUPS,
   BLUE_ROW_BONUSES,
-  canMarkPurple,
-  emptySheet,
-  extraDieLeft,
-  foxScore,
   GREEN_BONUSES,
   GREEN_MIN,
   ORANGE_BONUSES,
-  orangeScore,
   PURPLE_BONUSES,
-  totalScore,
   YELLOW_DIAGONAL_BONUS,
   YELLOW_ROW_BONUSES,
-  YELLOW_VALUES,
+  blueSum,
+  canMarkPurple,
+  emptySheet,
+  finalResults,
+  foxScore,
+  orangeScore,
+  soloRating,
+  totalScore,
   yellowScore,
 } from "./sheet";
-import type { DieColor, GameState } from "./types";
+import { isClientAction, type Die, type DieColor, type GameState, type TablePlayer } from "./types";
 
-const pips = YELLOW_VALUES.filter((v): v is number => v !== "pre");
-assert.equal(YELLOW_VALUES.filter((v) => v === "pre").length, 4);
-for (let n = 1; n <= 6; n++) assert.equal(pips.filter((v) => v === n).length, 2);
+const colors: DieColor[] = ["yellow", "blue", "green", "orange", "purple", "white"];
+const dice = (values: number[] = [1, 2, 3, 4, 5, 6]): Die[] =>
+  colors.map((color, index) => ({ id: color, color, value: values[index]! }));
 
-const sheet = emptySheet();
-assert.equal(yellowScore(sheet), 0);
-sheet.yellow.forEach((c, i) => {
-  if (i % 4 === 0) c.marked = true;
+function onePlayer(seed = 1): GameState {
+  let game = createGame([{ id: "a", name: "Ada" }], seed);
+  game = applyAction(game, "a", { type: "claim-round", choice: "reroll" });
+  assert.equal(game.prompt?.kind, "pick-die");
+  return game;
+}
+
+function players(...entries: { id: string; name: string }[]): TablePlayer[] {
+  return entries.map((entry) => ({
+    ...entry,
+    connected: true,
+    sheet: emptySheet(),
+    extraUsedThisTurn: [],
+    passiveDone: false,
+  }));
+}
+
+// Printed pad constants are deliberately exhaustive: position is gameplay.
+assert.deepEqual(YELLOW_ROW_BONUSES, [
+  { type: "blueX" },
+  { type: "orangeN", value: 4 },
+  { type: "greenX" },
+  { type: "fox" },
+]);
+assert.deepEqual(YELLOW_DIAGONAL_BONUS, { type: "extraDie" });
+assert.deepEqual(BLUE_ROW_BONUSES, [
+  { type: "orangeN", value: 5 },
+  { type: "yellowX" },
+  { type: "fox" },
+]);
+assert.deepEqual(BLUE_COL_GROUPS, [
+  { cells: [0, 3, 7], bonus: { type: "reroll" } },
+  { cells: [1, 4, 8], bonus: { type: "greenX" } },
+  { cells: [2, 5, 9], bonus: { type: "purpleN", value: 6 } },
+  { cells: [6, 10], bonus: { type: "extraDie" } },
+]);
+assert.deepEqual(GREEN_MIN, [1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6]);
+assert.deepEqual(GREEN_BONUSES, [
+  null,
+  null,
+  null,
+  { type: "extraDie" },
+  null,
+  { type: "blueX" },
+  { type: "fox" },
+  null,
+  { type: "purpleN", value: 6 },
+  { type: "reroll" },
+  null,
+]);
+assert.deepEqual(ORANGE_BONUSES, [
+  null,
+  null,
+  { type: "reroll" },
+  null,
+  { type: "yellowX" },
+  { type: "extraDie" },
+  null,
+  { type: "fox" },
+  null,
+  { type: "purpleN", value: 6 },
+  null,
+]);
+assert.deepEqual(PURPLE_BONUSES, [
+  null,
+  null,
+  { type: "reroll" },
+  { type: "blueX" },
+  { type: "extraDie" },
+  { type: "yellowX" },
+  { type: "fox" },
+  { type: "reroll" },
+  { type: "greenX" },
+  { type: "orangeN", value: 6 },
+  { type: "extraDie" },
+]);
+
+// Fundamental area scoring and purple's post-six reset.
+const yellow = emptySheet();
+yellow.yellow.forEach((cell, index) => {
+  if (index % 4 === 0) cell.marked = true;
 });
-assert.equal(yellowScore(sheet), 10);
+assert.equal(yellowScore(yellow), 10);
+const orange = emptySheet();
+orange.orange[0] = 4;
+orange.orange[3] = 12;
+assert.equal(orangeScore(orange), 16);
+const purple = emptySheet();
+purple.purple[0] = 2;
+assert.equal(canMarkPurple(purple, 2), false);
+assert.equal(canMarkPurple(purple, 6), true);
+purple.purple[1] = 6;
+assert.equal(canMarkPurple(purple, 1), true);
+assert.equal(totalScore(emptySheet()), 0);
+const zeroFox = emptySheet();
+zeroFox.foxes = 5;
+zeroFox.orange[0] = 6;
+assert.equal(foxScore(zeroFox), 0);
 
-sheet.foxes = 2;
-sheet.green = 4;
-assert.equal(areaScores(sheet).green, 10);
-assert.equal(foxScore(sheet), 0);
-
-const s2 = emptySheet();
-s2.orange[0] = 4;
-s2.orange[3] = 12;
-assert.equal(orangeScore(s2), 16);
-
-const p = emptySheet();
-assert.equal(canMarkPurple(p, 2), true);
-p.purple[0] = 2;
-assert.equal(canMarkPurple(p, 2), false);
-assert.equal(canMarkPurple(p, 3), true);
-p.purple[1] = 6;
-assert.equal(canMarkPurple(p, 1), true);
-
-let g = createGame([{ id: "a", name: "Ada" }], 42);
-assert.equal(g.prompt?.kind, "round-bonus");
-g = applyAction(g, "a", { type: "claim-round", choice: "extra" });
-assert.equal(g.players[0].sheet.extraDie, 1);
-assert.equal(g.prompt?.kind, "pick-die");
-g = applyAction(g, "a", { type: "roll" });
-assert.ok(g.dice.rolled.length === 6, "six dice on first roll");
-const die = g.dice.rolled[0]!;
-g = applyAction(g, "a", { type: "pick-die", dieId: die.id, score: false });
-assert.equal(g.dice.chosen.length, 1);
-assert.ok(g.dice.platter.every((d) => d.value < die.value));
-
-assert.ok(totalScore(emptySheet()) === 0);
-assert.ok(GREEN_MIN[0] === 1);
-
-function setRolled(state: GameState, values: Partial<Record<DieColor, number>>): GameState {
-  const next = structuredClone(state);
-  next.dice.rolled = next.dice.rolled.map((d) =>
-    values[d.color] != null ? { ...d, value: values[d.color]! } : d,
-  );
-  return next;
+// Round rewards: reroll, extra die, reroll, then X-or-six.
+for (const [round, choice, field] of [
+  [1, "reroll", "rerolls"],
+  [2, "extra", "extraDie"],
+  [3, "reroll", "rerolls"],
+] as const) {
+  let game = createGame([{ id: "a", name: "Ada" }], round);
+  game.round = round;
+  game.prompt = { kind: "round-bonus", playerId: "a", round };
+  game = applyAction(game, "a", { type: "claim-round", choice });
+  assert.equal(game.players[0]!.sheet[field], 1, `round ${round} reward`);
 }
+let roundFour = createGame([{ id: "a", name: "Ada" }], 4);
+roundFour.round = 4;
+roundFour.prompt = { kind: "round-bonus", playerId: "a", round: 4 };
+roundFour = applyAction(roundFour, "a", { type: "claim-round", choice: "six" });
+assert.equal(roundFour.prompt?.kind, "six-pick");
+roundFour = applyAction(roundFour, "a", { type: "six-pick", color: "orange" });
+assert.equal(roundFour.players[0]!.sheet.orange[0], 6);
 
-function rollIfNeeded(state: GameState, id: string): GameState {
-  if (state.prompt?.kind === "pick-die" && state.prompt.source === "active" && state.dice.rolled.length === 0) {
-    return applyAction(state, id, { type: "roll" });
-  }
-  return state;
-}
+// Extra die: all six immutable values are candidates; regular selection can repeat,
+// but the same physical die cannot be selected twice through extra actions.
+let extra = onePlayer(11);
+extra.players[0]!.sheet.extraDie = 2;
+extra.dice = {
+  pool: [],
+  rolled: [],
+  chosen: [dice()[3]!],
+  platter: dice().filter((die) => die.color !== "orange"),
+};
+extra.prompt = { kind: "extra-or-done", playerId: "a" };
+const immutableDice = structuredClone(extra.dice);
+assert.equal(canUseExtraAction(extra, "a"), true);
+extra = applyAction(extra, "a", { type: "use-extra" });
+assert.deepEqual(extra.dice, immutableDice, "spending an extra never rerolls");
+assert.equal(diceForPrompt(extra).length, 6, "all six dice are offered");
+extra = applyAction(extra, "a", { type: "pick-die", dieId: "orange" });
+assert.equal(extra.players[0]!.sheet.orange[0], 4, "kept regular die may be selected again");
+assert.deepEqual(extra.players[0]!.extraUsedThisTurn, ["orange"]);
+extra = applyAction(extra, "a", { type: "use-extra" });
+const beforeDuplicate = structuredClone(extra);
+extra = applyAction(extra, "a", { type: "pick-die", dieId: "orange" });
+assert.deepEqual(extra, beforeDuplicate, "same die is rejected for a second extra");
 
-function pickColor(state: GameState, id: string, color: DieColor, score: boolean): GameState {
-  const next = rollIfNeeded(state, id);
-  const d = next.dice.rolled.find((x) => x.color === color);
-  assert.ok(d, `missing ${color} in rolled`);
-  return applyAction(next, id, { type: "pick-die", dieId: d!.id, score });
-}
-
-function skipCells(state: GameState, id: string): GameState {
-  let next = state;
-  while (next.prompt?.kind === "yellow-cell") {
-    const idx = next.players[0]!.sheet.yellow.findIndex(
-      (c) => !c.marked && c.value !== "pre" && (next.prompt?.kind === "yellow-cell" && (next.prompt.value === "any" || c.value === next.prompt.value)),
-    );
-    assert.ok(idx >= 0);
-    next = applyAction(next, id, { type: "yellow-cell", index: idx });
-  }
-  while (next.prompt?.kind === "blue-cell") {
-    const want = next.prompt.value;
-    const idx =
-      want === "any"
-        ? next.players[0]!.sheet.blue.findIndex((m) => !m)
-        : [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].findIndex((n, i) => n === want && !next.players[0]!.sheet.blue[i]);
-    assert.ok(idx >= 0);
-    next = applyAction(next, id, { type: "blue-cell", index: idx });
-  }
-  if (next.prompt?.kind === "white-color") {
-    next = applyAction(next, id, { type: "white-color", color: "orange" });
-  }
-  return next;
-}
-
-function finishActivePicks(state: GameState, id: string): GameState {
-  let next = state;
-  let guard = 12;
-  while (guard-- && next.prompt?.kind === "pick-die" && next.prompt.source === "active") {
-    next = rollIfNeeded(next, id);
-    const d = next.dice.rolled[0];
-    if (!d) break;
-    next = applyAction(next, id, { type: "pick-die", dieId: d.id, score: false });
-    next = skipCells(next, id);
-  }
-  return next;
-}
-
-let solo = createGame([{ id: "a", name: "Ada" }], 7);
-solo = applyAction(solo, "a", { type: "claim-round", choice: "extra" });
-solo = finishActivePicks(solo, "a");
-assert.equal(solo.prompt?.kind, "extra-or-done");
-const platterBefore = solo.dice.platter.map((d) => `${d.color}:${d.value}`).sort().join(",");
-const chosenBefore = solo.dice.chosen.map((d) => d.id).sort().join(",");
+// Solo passive role is a fresh six-die roll with exactly the deterministic low three.
+let solo = onePlayer(29);
+solo.dice = { pool: [], rolled: [], chosen: [dice([6, 6, 6, 6, 6, 6])[0]!], platter: [] };
+solo.players[0]!.extraUsedThisTurn = ["yellow"];
+solo.prompt = { kind: "extra-or-done", playerId: "a" };
 solo = applyAction(solo, "a", { type: "done-extra" });
 assert.equal(solo.prompt?.kind, "pick-die");
-assert.equal(solo.prompt && solo.prompt.kind === "pick-die" && solo.prompt.source, "passive-platter");
-assert.equal(
-  solo.dice.platter.map((d) => `${d.color}:${d.value}`).sort().join(","),
-  platterBefore,
-  "solo leftover must keep the turn's silver platter",
+assert.equal(solo.prompt?.kind === "pick-die" && solo.prompt.source, "passive-platter");
+assert.deepEqual(
+  solo.players[0]!.extraUsedThisTurn,
+  [],
+  "solo passive roll starts a fresh extra-die identity limit",
 );
-assert.equal(solo.dice.chosen.map((d) => d.id).sort().join(","), chosenBefore);
+assert.equal(solo.dice.platter.length, 3);
+assert.equal(solo.dice.chosen.length, 3);
+const soloAll = [...solo.dice.platter, ...solo.dice.chosen];
+const colorOrder = new Map(colors.map((color, index) => [color, index]));
+const sortedSolo = [...soloAll].sort(
+  (a, b) => a.value - b.value || colorOrder.get(a.color)! - colorOrder.get(b.color)!,
+);
+assert.deepEqual(solo.dice.platter, sortedSolo.slice(0, 3));
+assert.deepEqual(solo.dice.chosen, sortedSolo.slice(3));
 
-let extra = createGame([{ id: "a", name: "Ada" }], 11);
-extra = applyAction(extra, "a", { type: "claim-round", choice: "extra" });
-extra = finishActivePicks(extra, "a");
-assert.ok(extraDieLeft(extra.players[0]!.sheet) > 0);
-const platterSnap = extra.dice.platter.map((d) => `${d.id}:${d.value}`).join(",");
-extra = applyAction(extra, "a", { type: "use-extra" });
-assert.equal(extra.prompt?.kind, "pick-die");
-assert.equal(extra.prompt && extra.prompt.kind === "pick-die" && extra.prompt.source, "extra");
-assert.equal(extra.dice.platter.map((d) => `${d.id}:${d.value}`).join(","), platterSnap, "extra die does not reroll the platter");
-assert.equal(extraDieLeft(extra.players[0]!.sheet), 0);
+// An active player must select a legal die and has a server-authoritative no-fit action.
+let mandatory = onePlayer(31);
+mandatory = applyAction(mandatory, "a", { type: "roll" });
+mandatory.dice.rolled = dice([1, 2, 3, 4, 5, 6]);
+mandatory.players[0]!.sheet.yellow.forEach((cell) => {
+  if (cell.value === 1) cell.marked = true;
+});
+const beforeIllegalPick = structuredClone(mandatory);
+mandatory = applyAction(mandatory, "a", { type: "pick-die", dieId: "yellow" });
+assert.deepEqual(mandatory, beforeIllegalPick, "an unusable die cannot be picked while legal dice exist");
 
-let green = createGame([{ id: "a", name: "Ada" }], 3);
-green = applyAction(green, "a", { type: "claim-round", choice: "extra" });
-green = applyAction(green, "a", { type: "roll" });
-green = setRolled(green, { green: 6, yellow: 6, blue: 6, orange: 6, purple: 6, white: 6 });
-green = pickColor(green, "a", "green", true);
-assert.equal(green.players[0]!.sheet.green, 1);
-green = applyAction(green, "a", { type: "roll" });
-green = setRolled(green, { yellow: 6, blue: 6, orange: 6, purple: 6, white: 6 });
-const extrasBefore = green.players[0]!.sheet.extraDie;
-green = pickColor(green, "a", "white", true);
-if (green.prompt?.kind === "white-color") {
-  green = applyAction(green, "a", { type: "white-color", color: "green" });
+mandatory.players[0]!.sheet.yellow.forEach((cell) => (cell.marked = true));
+mandatory.players[0]!.sheet.blue.fill(true);
+mandatory.players[0]!.sheet.green = 11;
+mandatory.players[0]!.sheet.orange.fill(1);
+mandatory.players[0]!.sheet.purple.fill(6);
+const forfeitedValues = mandatory.dice.rolled.map((die) => die.value);
+mandatory = applyAction(mandatory, "a", { type: "forfeit-roll" });
+assert.equal(mandatory.dice.rolled.length, 0);
+assert.deepEqual(mandatory.dice.pool.map((die) => die.value), forfeitedValues);
+assert.equal(mandatory.dice.chosen.length, 0);
+assert.equal(mandatory.dice.platter.length, 0);
+
+// Blue always reads both immutable dice regardless of their table partitions.
+const splitDice = {
+  pool: [] as Die[],
+  rolled: [{ id: "blue", color: "blue", value: 3 } as Die],
+  chosen: [] as Die[],
+  platter: [{ id: "white", color: "white", value: 4 } as Die],
+};
+assert.equal(blueSum([...splitDice.rolled, ...splitDice.platter]), 7);
+for (let bluePosition = 0; bluePosition < 4; bluePosition++) {
+  for (let whitePosition = 0; whitePosition < 4; whitePosition++) {
+    const partitions: Die[][] = [[], [], [], []];
+    partitions[bluePosition]!.push({ id: "blue", color: "blue", value: 2 });
+    partitions[whitePosition]!.push({ id: "white", color: "white", value: 5 });
+    assert.equal(blueSum(partitions.flat()), 7, `blue/white positions ${bluePosition}/${whitePosition}`);
+  }
 }
-assert.equal(green.players[0]!.sheet.green, 2);
-const secondGreenBonus = GREEN_BONUSES[1];
-assert.equal(
-  green.players[0]!.sheet.extraDie,
-  extrasBefore + (secondGreenBonus?.type === "extraDie" ? 1 : 0),
-  "crossing a green box pays exactly the bonus printed under it",
-);
+let blue = onePlayer(37);
+blue.dice = splitDice;
+blue.rollsUsed = 1;
+blue.prompt = { kind: "pick-die", playerId: "a", source: "active", allowPass: false };
+blue = applyAction(blue, "a", { type: "pick-die", dieId: "blue" });
+assert.equal(blue.players[0]!.sheet.blue[5], true, "blue 3 + white 4 marks seven");
 
-/** The printed pad has one fox per color area, so a sheet can hold at most five. */
-const foxBudget =
-  [
-    ...YELLOW_ROW_BONUSES,
-    YELLOW_DIAGONAL_BONUS,
-    ...BLUE_ROW_BONUSES,
-    ...BLUE_COL_GROUPS.map((g) => g.bonus),
-    ...GREEN_BONUSES,
-    ...ORANGE_BONUSES,
-    ...PURPLE_BONUSES,
-  ].filter((b) => b?.type === "fox").length;
-assert.equal(foxBudget, 5, "exactly five foxes are reachable");
+// Immediate bonuses chain: yellow row -> blue X -> blue row -> orange 5.
+let chain = onePlayer(41);
+chain.players[0]!.sheet.yellow[0]!.marked = true;
+chain.players[0]!.sheet.yellow[1]!.marked = true;
+chain.players[0]!.sheet.blue[1] = true;
+chain.players[0]!.sheet.blue[2] = true;
+chain.prompt = { kind: "yellow-cell", playerId: "a", value: "any" };
+chain = applyAction(chain, "a", { type: "yellow-cell", index: 2 });
+assert.equal(chain.prompt?.kind, "blue-cell");
+chain = applyAction(chain, "a", { type: "blue-cell", index: 0 });
+assert.equal(chain.players[0]!.sheet.orange[0], 5);
 
-let duo = createGame(
+// Passive players must use a usable platter die; fallback is only offered otherwise.
+let passive = createGame(
   [
     { id: "a", name: "Ada" },
     { id: "b", name: "Bea" },
   ],
-  19,
+  43,
 );
-duo = applyAction(duo, "a", { type: "claim-round", choice: "extra" });
-duo = applyAction(duo, "b", { type: "claim-round", choice: "extra" });
-duo = finishActivePicks(duo, "a");
-assert.equal(duo.prompt?.kind, "extra-or-done");
-duo = applyAction(duo, "a", { type: "done-extra" });
-assert.equal(duo.prompt?.kind, "pick-die");
-assert.equal(duo.prompt?.playerId, "b");
-assert.ok(duo.prompt && duo.prompt.kind === "pick-die" && duo.prompt.source.startsWith("passive"));
+passive = applyAction(passive, "a", { type: "claim-round", choice: "reroll" });
+passive = applyAction(passive, "b", { type: "claim-round", choice: "reroll" });
+passive.players[1]!.sheet.yellow.forEach((cell) => {
+  if (cell.value === 1) cell.marked = true;
+});
+passive.dice = {
+  pool: [],
+  rolled: [],
+  chosen: [{ id: "orange", color: "orange", value: 4 }],
+  platter: [{ id: "yellow", color: "yellow", value: 1 }],
+};
+passive.prompt = { kind: "extra-or-done", playerId: "a" };
+passive = applyAction(passive, "a", { type: "done-extra" });
+assert.equal(passive.prompt?.kind === "pick-die" && passive.prompt.source, "passive-chosen");
+assert.equal(passive.prompt?.kind === "pick-die" && passive.prompt.allowPass, false);
+const beforeMandatoryPass = structuredClone(passive);
+passive = applyAction(passive, "b", { type: "pass" });
+assert.deepEqual(passive, beforeMandatoryPass);
 
-const purple = emptySheet();
-assert.equal(canMarkPurple(purple, 1), true);
-purple.purple[0] = 5;
-assert.equal(canMarkPurple(purple, 5), false);
-assert.equal(canMarkPurple(purple, 6), true);
+// Formal result ordering uses total, then highest single color, with shared winners.
+const table = players(
+  { id: "a", name: "Ada" },
+  { id: "b", name: "Bea" },
+  { id: "c", name: "Cy" },
+);
+table[0]!.sheet.orange[0] = 10;
+table[0]!.sheet.blue[0] = true; // 11 total, highest color 10
+table[1]!.sheet.orange[0] = 8;
+table[1]!.sheet.green = 2; // 11 total, highest color 8
+table[2]!.sheet.orange[0] = 10;
+table[2]!.sheet.blue[0] = true; // unresolved tie with Ada
+const results = finalResults(table);
+assert.deepEqual(
+  results.map((result) => [result.name, result.rank, result.winner]),
+  [
+    ["Ada", 1, true],
+    ["Cy", 1, true],
+    ["Bea", 3, false],
+  ],
+);
+assert.equal(soloRating(281), "You’re so clever!");
+assert.equal(soloRating(260), "Are you Einstein?");
+assert.equal(soloRating(140), "Not bad… you could do better.");
+assert.equal(soloRating(139), "Try harder!");
+
+// The game ends only after the final passive role and final extra opportunity.
+let ending = onePlayer(47);
+ending.round = ending.totalRounds;
+ending.players[0]!.passiveDone = true;
+ending.prompt = { kind: "extra-or-done", playerId: "a" };
+ending = applyAction(ending, "a", { type: "done-extra" });
+assert.equal(ending.status, "finished");
+assert.equal(ending.prompt, null);
+
+// Socket actions are strict at runtime.
+assert.equal(isClientAction({ type: "roll" }), true);
+assert.equal(isClientAction({ type: "roll", extra: true }), false);
+assert.equal(isClientAction({ type: "pick-die", dieId: "orange" }), true);
+assert.equal(isClientAction({ type: "pick-die", dieId: "bogus" }), false);
+assert.equal(isClientAction({ type: "pick-die", dieId: "orange", score: false }), false);
+assert.equal(isClientAction({ type: "yellow-cell", index: 15 }), true);
+assert.equal(isClientAction({ type: "yellow-cell", index: 16 }), false);
+assert.equal(isClientAction({ type: "white-color", color: "white" }), false);
+assert.equal(isClientAction({ type: "x-pick", color: "purple" }), false);
 
 console.log("ok");

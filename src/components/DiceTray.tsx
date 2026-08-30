@@ -18,7 +18,7 @@ export function DiceTray({
   allDice: Die[];
   extraUsed: DieColor[];
   source: string;
-  onPick: (id: string, score: boolean) => void;
+  onPick: (id: string) => void;
 }) {
   if (dice.length === 0) {
     return <p className="text-sm text-cream/60">No dice available.</p>;
@@ -29,16 +29,14 @@ export function DiceTray({
       {dice.map((die) => {
         const fits = canScoreDie(sheet, die, allDice);
         const usedColor = source === "extra" && extraUsed.includes(die.color);
-        // The active player may still take a die that fits nowhere; it just scores nothing.
-        const takeAnyway = source === "active" && !fits;
-        const disabled = usedColor || (!fits && !takeAnyway);
+        const disabled = usedColor || !fits;
 
         return (
           <button
             key={die.id}
             type="button"
             disabled={disabled}
-            onClick={() => onPick(die.id, fits)}
+            onClick={() => onPick(die.id)}
             className={cn(
               "flex min-w-[4rem] shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 transition sm:min-w-[4.5rem] sm:gap-1.5 sm:py-2",
               fits && !usedColor
@@ -54,7 +52,7 @@ export function DiceTray({
                 fits && !usedColor ? "text-gold" : "text-cream/45",
               )}
             >
-              {usedColor ? "used" : fits ? "score" : takeAnyway ? "no fit" : "—"}
+              {usedColor ? "used" : fits ? "score" : "—"}
             </span>
           </button>
         );

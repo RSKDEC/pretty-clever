@@ -18,6 +18,8 @@ import {
   ORANGE_MULT,
   PURPLE_BONUSES,
   rerollsLeft,
+  roundFourSixOptions,
+  roundFourXOptions,
   roundsForPlayerCount,
   TRACK_LEN,
   yellowDiagComplete,
@@ -136,9 +138,12 @@ export function applyAction(state: GameState, playerId: string, action: ClientAc
       case "reroll":
         doRoll(next, playerId, true);
         break;
+      case "forfeit-roll":
+        forfeitRoll(next, playerId);
+        break;
       case "pick-die":
         if (prompt.kind !== "pick-die") return state;
-        pickDie(next, playerId, action.dieId, action.score);
+        pickDie(next, playerId, action.dieId);
         break;
       case "pass":
         if (prompt.kind !== "pick-die" || !prompt.allowPass) return state;
@@ -162,10 +167,12 @@ export function applyAction(state: GameState, playerId: string, action: ClientAc
         break;
       case "x-pick":
         if (prompt.kind !== "x-pick") return state;
+        if (!roundFourXOptions(P(next, playerId).sheet).includes(action.color)) return state;
         enqueueAndFlush(next, P(next, playerId), colorToXBonus(action.color));
         break;
       case "six-pick":
         if (prompt.kind !== "six-pick") return state;
+        if (!roundFourSixOptions(P(next, playerId).sheet).includes(action.color)) return state;
         enqueueAndFlush(
           next,
           P(next, playerId),
@@ -197,7 +204,7 @@ function colorToXBonus(color: "yellow" | "blue" | "green"): Bonus {
 
 function beginRoundBonuses(state: Internal) {
   if (state.round <= 4) {
-    state.prompt = { kind: "round-bonus", playerId: state.players[0].id, round: state.round };
+    promptNextRoundBonus(state);
     return;
   }
   startActiveTurn(state);
@@ -208,28 +215,28 @@ function claimRound(state: Internal, playerId: string, choice: "extra" | "reroll
   const r = state.round - 1;
   if (p.sheet.roundBonusesClaimed[r]) return;
   if (state.round === 1 || state.round === 3) {
-    if (choice !== "extra") return;
-    p.sheet.extraDie += 1;
+    if (choice !== "reroll") return;
+    p.sheet.rerolls += 1;
     p.sheet.roundBonusesClaimed[r] = true;
-    log(state, `${p.name} banks the round ${state.round} extra die.`);
+    log(state, `${p.name} banks the round ${state.round} reroll.`);
     advanceRoundBonus(state);
     return;
   }
   if (state.round === 2) {
-    if (choice !== "reroll") return;
-    p.sheet.rerolls += 1;
+    if (choice !== "extra") return;
+    p.sheet.extraDie += 1;
     p.sheet.roundBonusesClaimed[r] = true;
-    log(state, `${p.name} banks the round 2 reroll.`);
+    log(state, `${p.name} banks the round 2 extra die.`);
     advanceRoundBonus(state);
     return;
   }
-  if (choice === "x") {
+  if (choice === "x" && roundFourXOptions(p.sheet).length) {
     p.sheet.roundBonusesClaimed[r] = true;
     state.resume = { kind: "round-bonus-next" };
     state.prompt = { kind: "x-pick", playerId };
     return;
   }
-  if (choice === "six") {
+  if (choice === "six" && roundFourSixOptions(p.sheet).length) {
     p.sheet.roundBonusesClaimed[r] = true;
     state.resume = { kind: "round-bonus-next" };
     state.prompt = { kind: "six-pick", playerId };
@@ -238,9 +245,24 @@ function claimRound(state: Internal, playerId: string, choice: "extra" | "reroll
 }
 
 function advanceRoundBonus(state: Internal) {
+  promptNextRoundBonus(state);
+}
+
+function promptNextRoundBonus(state: Internal) {
   const idx = state.players.findIndex((p) => !p.sheet.roundBonusesClaimed[state.round - 1]);
   if (idx === -1) {
     startActiveTurn(state);
+    return;
+  }
+  const player = state.players[idx];
+  if (
+    state.round === 4 &&
+    roundFourXOptions(player.sheet).length === 0 &&
+    roundFourSixOptions(player.sheet).length === 0
+  ) {
+    player.sheet.roundBonusesClaimed[3] = true;
+    log(state, `${player.name} has no legal round 4 bonus destination.`);
+    promptNextRoundBonus(state);
     return;
   }
   state.prompt = { kind: "round-bonus", playerId: state.players[idx].id, round: state.round };
@@ -279,6 +301,31 @@ function doRoll(state: Internal, playerId: string, isReroll: boolean) {
   log(state, `${p.name} rolls: ${fmtDice(state.dice.rolled)}.`);
 }
 
+function forfeitRoll(state: Internal, playerId: string) {
+  if (
+    state.prompt?.kind !== "pick-die" ||
+    state.prompt.source !== "active" ||
+    state.players[state.activeIndex].id !== playerId ||
+    state.dice.rolled.length === 0
+  ) {
+    return;
+  }
+  const player = P(state, playerId);
+  const all = allCurrentDice(state.dice);
+  if (state.dice.rolled.some((die) => canScoreDie(player.sheet, die, all))) return;
+  log(state, `${player.name} cannot score any die from roll ${state.rollsUsed}.`);
+  if (state.rollsUsed >= 3) {
+    state.dice.platter.push(...state.dice.rolled);
+    state.dice.rolled = [];
+    state.dice.pool = [];
+    offerExtra(state, playerId);
+    return;
+  }
+  state.dice.pool = state.dice.rolled;
+  state.dice.rolled = [];
+  state.prompt = { kind: "pick-die", playerId, source: "active", allowPass: false };
+}
+
 function fmtDice(dice: Die[]) {
   return dice.map((d) => `${label(d.color)} ${d.value}`).join(", ");
 }
@@ -287,7 +334,7 @@ function label(c: DieColor) {
   return c[0]!.toUpperCase() + c.slice(1);
 }
 
-function pickDie(state: Internal, playerId: string, dieId: string, score: boolean) {
+function pickDie(state: Internal, playerId: string, dieId: string) {
   const prompt = state.prompt;
   if (!prompt || prompt.kind !== "pick-die") return;
   const p = P(state, playerId);
@@ -297,7 +344,7 @@ function pickDie(state: Internal, playerId: string, dieId: string, score: boolea
     const die = state.dice.rolled.find((d) => d.id === dieId);
     if (!die) return;
     const all = allCurrentDice(state.dice);
-    if (score && !canScoreDie(p.sheet, die, all)) return;
+    if (!canScoreDie(p.sheet, die, all)) return;
     state.dice.rolled = state.dice.rolled.filter((d) => d.id !== dieId);
     const lower = state.dice.rolled.filter((d) => d.value < die.value);
     const keep = state.dice.rolled.filter((d) => d.value >= die.value);
@@ -306,11 +353,7 @@ function pickDie(state: Internal, playerId: string, dieId: string, score: boolea
     state.dice.pool = keep;
     state.dice.rolled = [];
     state.resume = { kind: "after-active" };
-    if (score) startScore(state, p, die, "active");
-    else {
-      log(state, `${p.name} locks ${label(die.color)} ${die.value} without scoring.`);
-      afterActivePick(state);
-    }
+    startScore(state, p, die, "active");
     return;
   }
 
@@ -318,39 +361,32 @@ function pickDie(state: Internal, playerId: string, dieId: string, score: boolea
   const die = unique(pile).find((d) => d.id === dieId);
   if (!die) return;
   const all = allCurrentDice(state.dice);
-  if (score && !canScoreDie(p.sheet, die, all)) return;
+  if (!canScoreDie(p.sheet, die, all)) return;
   if (prompt.source === "extra") {
     if (p.extraUsedThisTurn.includes(die.color)) return;
     p.extraUsedThisTurn.push(die.color);
   }
   state.resume = { kind: "after-passive-or-extra", source: prompt.source };
-  if (score) startScore(state, p, die, prompt.source);
-  else {
-    log(state, `${p.name} declines to score.`);
-    resumeFlow(state, state.resume);
-  }
+  startScore(state, p, die, prompt.source);
 }
 
 function extraPile(state: Internal, source: string): Die[] {
   if (source === "passive-platter") return state.dice.platter;
   if (source === "passive-chosen") return state.dice.chosen;
-  return unique(state.dice.chosen);
+  return unique(allCurrentDice(state.dice));
 }
 
 function beginExtraRoll(state: Internal, playerId: string) {
   const p = P(state, playerId);
   if (!extraDieLeft(p.sheet)) return;
-  const base = unique(state.dice.chosen);
-  if (base.length === 0) {
-    log(state, `${p.name} has no dice off the platter to roll.`);
-    state.prompt = { kind: "extra-or-done", playerId };
-    return;
-  }
+  const all = unique(allCurrentDice(state.dice));
+  const available = all.filter(
+    (die) => !p.extraUsedThisTurn.includes(die.color) && canScoreDie(p.sheet, die, all),
+  );
+  if (available.length === 0) return;
   p.sheet.extraDieUsed += 1;
-  const rng = makeRng(state.seed + ++seq * 7723);
-  state.dice.chosen = base.map((d) => ({ ...d, value: rollValue(rng) }));
-  state.prompt = { kind: "pick-die", playerId, source: "extra", allowPass: true };
-  log(state, `${p.name} spends an extra die: ${fmtDice(state.dice.chosen)}.`);
+  state.prompt = { kind: "pick-die", playerId, source: "extra", allowPass: false };
+  log(state, `${p.name} spends an extra-die action.`);
 }
 
 function unique(dice: Die[]): Die[] {
@@ -658,21 +694,41 @@ function promptPassive(state: Internal, index: number) {
 
 function startSoloPassive(state: Internal) {
   const p = state.players[0]!;
-  const all = allCurrentDice(state.dice);
-  const platterUsable = state.dice.platter.some((d) => canScoreDie(p.sheet, d, all));
-  const source = platterUsable || state.dice.platter.length > 0 ? "passive-platter" : "passive-chosen";
+  // The solo passive roll is a separate turn. Extra-die identity limits therefore
+  // start fresh, just as they do when another player becomes active.
+  p.extraUsedThisTurn = [];
+  const rng = makeRng(state.seed + ++seq * 6151);
+  // The physical game resolves a tie at the third-lowest die by proximity to
+  // the platter. This fixed color order is the digital table's equivalent
+  // left-to-right proximity, so exactly three dice are always offered.
+  const colorOrder = new Map<DieColor, number>(
+    (["yellow", "blue", "green", "orange", "purple", "white"] as DieColor[]).map((color, index) => [
+      color,
+      index,
+    ]),
+  );
+  const rolled = freshDice()
+    .map((die) => ({ ...die, value: rollValue(rng) }))
+    .sort((a, b) => a.value - b.value || colorOrder.get(a.color)! - colorOrder.get(b.color)!);
+  state.dice = {
+    pool: [],
+    rolled: [],
+    platter: rolled.slice(0, 3),
+    chosen: rolled.slice(3),
+  };
+  const platterUsable = state.dice.platter.some((die) =>
+    canScoreDie(p.sheet, die, allCurrentDice(state.dice)),
+  );
   log(
     state,
-    `Solo leftover — score one ${source === "passive-platter" ? "silver platter" : "chosen"} die: ${fmtDice(
-      source === "passive-platter" ? state.dice.platter : state.dice.chosen,
-    )}.`,
+    `Solo passive roll — three lowest go to the platter: ${fmtDice(state.dice.platter)}.`,
   );
-  state.resume = { kind: "after-passive-or-extra", source };
+  state.resume = { kind: "after-passive-or-extra", source: "passive-platter" };
   state.prompt = {
     kind: "pick-die",
     playerId: p.id,
-    source,
-    allowPass: true,
+    source: "passive-platter",
+    allowPass: !platterUsable,
   };
 }
 
@@ -712,11 +768,21 @@ export function diceForPrompt(state: GameState): Die[] {
   if (prompt.source === "active") return state.dice.rolled;
   if (prompt.source === "passive-platter") return unique(state.dice.platter);
   if (prompt.source === "passive-chosen") return unique(state.dice.chosen);
-  return unique(state.dice.chosen);
+  return unique(allCurrentDice(state.dice));
 }
 
 export function isMyPrompt(state: GameState, playerId: string) {
   return state.prompt?.playerId === playerId;
+}
+
+export function canUseExtraAction(state: GameState, playerId: string): boolean {
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!player || extraDieLeft(player.sheet) <= 0) return false;
+  const all = unique(allCurrentDice(state.dice));
+  return all.some(
+    (die) =>
+      !player.extraUsedThisTurn.includes(die.color) && canScoreDie(player.sheet, die, all),
+  );
 }
 
 export function cloneSheet(sheet: Sheet): Sheet {

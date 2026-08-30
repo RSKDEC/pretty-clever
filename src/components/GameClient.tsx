@@ -5,8 +5,18 @@ import { io, type Socket } from "socket.io-client";
 import { DieFace } from "@/components/Die";
 import { DiceTray } from "@/components/DiceTray";
 import { ScoreSheet } from "@/components/ScoreSheet";
-import { diceForPrompt } from "@/lib/game/engine";
-import { areaScores, extraDieLeft, legalWhiteColors, rerollsLeft, totalScore } from "@/lib/game/sheet";
+import { canUseExtraAction, diceForPrompt } from "@/lib/game/engine";
+import {
+  canScoreDie,
+  extraDieLeft,
+  finalResults,
+  legalWhiteColors,
+  rerollsLeft,
+  roundFourSixOptions,
+  roundFourXOptions,
+  soloRating,
+  totalScore,
+} from "@/lib/game/sheet";
 import type { ClientAction, Die, GameState, Prompt } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { Check, Link2, RotateCcw, Users } from "lucide-react";
@@ -72,7 +82,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
           <h1 className="font-display text-5xl leading-none text-cream sm:text-6xl">Pretty Clever</h1>
           <p className="text-pretty text-sm leading-relaxed text-cream/70">
             Roll six colored dice, pick cleverly, and chain bonuses across your sheet. Every die you
-            leave behind lands on the silver platter for everyone else — so nobody sits idle.
+            roll lower than your chosen die lands on the silver platter for everyone else.
           </p>
         </header>
 
@@ -346,22 +356,29 @@ function LogPanel({ game }: { game: GameState }) {
 }
 
 function FinalTally({ game }: { game: GameState }) {
-  const scores = game.players
-    .map((p) => ({ id: p.id, name: p.name, total: totalScore(p.sheet), areas: areaScores(p.sheet) }))
-    .sort((a, b) => b.total - a.total);
+  const scores = finalResults(game.players);
+  const winners = scores.filter((score) => score.winner);
 
   return (
     <div className="pop-in rounded-2xl border border-gold/30 bg-gold/10 p-4">
       <p className="font-display text-xl text-gold">Final tally</p>
+      <p className="mt-1 text-xs font-semibold text-cream/70">
+        {game.players.length === 1
+          ? soloRating(scores[0]?.total ?? 0)
+          : winners.length > 1
+            ? `Shared winners: ${winners.map((winner) => winner.name).join(", ")}`
+            : `${winners[0]?.name ?? "No one"} wins`}
+      </p>
       <ol className="mt-2 space-y-2">
-        {scores.map((s, i) => (
+        {scores.map((s) => (
           <li key={s.id} className="text-sm text-cream">
             <span className="font-bold">
-              {i + 1}. {s.name} — {s.total}
+              {s.rank}. {s.name} — {s.total}
             </span>
             <span className="mt-0.5 block text-[11px] text-cream/50">
               Y {s.areas.yellow} · B {s.areas.blue} · G {s.areas.green} · O {s.areas.orange} · P{" "}
-              {s.areas.purple}
+              {s.areas.purple} · 🦊 {s.foxes} × {s.foxes ? s.foxSubtotal / s.foxes : 0} ={" "}
+              {s.foxSubtotal}
             </span>
           </li>
         ))}
@@ -388,6 +405,10 @@ function PromptBar({
   const waiter = game.players.find((p) => p.id === prompt?.playerId);
   const me = game.players.find((p) => p.id === youId)!;
   const allDice = [...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter];
+  const activeRollHasLegalDie =
+    prompt?.kind === "pick-die" &&
+    prompt.source === "active" &&
+    game.dice.rolled.some((die) => canScoreDie(me.sheet, die, allDice));
 
   if (game.status === "finished") {
     return (
@@ -409,9 +430,9 @@ function PromptBar({
   }
 
   if (prompt.kind === "round-bonus") {
-    if (prompt.round === 2) {
+    if (prompt.round === 1 || prompt.round === 3) {
       return (
-        <Dock title="Round 2 bonus">
+        <Dock title={`Round ${prompt.round} bonus`}>
           <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "reroll" })}>
             <RotateCcw className="size-4" /> Bank a reroll
           </button>
@@ -419,14 +440,20 @@ function PromptBar({
       );
     }
     if (prompt.round === 4) {
+      const xOptions = roundFourXOptions(me.sheet);
+      const sixOptions = roundFourSixOptions(me.sheet);
       return (
         <Dock title="Round 4 bonus — pick one">
-          <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "x" })}>
-            Free ✕
-          </button>
-          <button className="btn-ghost flex-1" onClick={() => onAction({ type: "claim-round", choice: "six" })}>
-            Write a 6
-          </button>
+          {xOptions.length ? (
+            <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "x" })}>
+              Free ✕
+            </button>
+          ) : null}
+          {sixOptions.length ? (
+            <button className="btn-ghost flex-1" onClick={() => onAction({ type: "claim-round", choice: "six" })}>
+              Write a 6
+            </button>
+          ) : null}
         </Dock>
       );
     }
@@ -473,12 +500,17 @@ function PromptBar({
             allDice={allDice}
             extraUsed={me.extraUsedThisTurn}
             source={prompt.source}
-            onPick={(id, score) => onAction({ type: "pick-die", dieId: id, score })}
+            onPick={(id) => onAction({ type: "pick-die", dieId: id })}
           />
           <div className="flex gap-2">
             {prompt.source === "active" && rerollsLeft(me.sheet) > 0 && game.dice.rolled.length > 0 ? (
               <button className="btn-ghost flex-1" onClick={() => onAction({ type: "reroll" })}>
                 <RotateCcw className="size-4" /> Reroll ({rerollsLeft(me.sheet)})
+              </button>
+            ) : null}
+            {prompt.source === "active" && game.dice.rolled.length > 0 && !activeRollHasLegalDie ? (
+              <button className="btn-primary flex-1" onClick={() => onAction({ type: "forfeit-roll" })}>
+                No legal die — forfeit roll
               </button>
             ) : null}
             {prompt.allowPass ? (
@@ -532,36 +564,46 @@ function PromptBar({
     );
   }
   if (prompt.kind === "x-pick") {
+    const options = roundFourXOptions(me.sheet);
     return (
       <Dock title="Free ✕ — which color?">
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "yellow" })}>
-          Yellow
-        </button>
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "blue" })}>
-          Blue
-        </button>
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "x-pick", color: "green" })}>
-          Green
-        </button>
+        {options.map((color) => (
+          <button
+            key={color}
+            className="btn-ghost flex-1 capitalize"
+            onClick={() => onAction({ type: "x-pick", color })}
+          >
+            {color}
+          </button>
+        ))}
       </Dock>
     );
   }
   if (prompt.kind === "six-pick") {
+    const options = roundFourSixOptions(me.sheet);
     return (
       <Dock title="Write a 6 in">
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "six-pick", color: "orange" })}>
-          Orange
-        </button>
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "six-pick", color: "purple" })}>
-          Purple
-        </button>
+        {options.map((color) => (
+          <button
+            key={color}
+            className="btn-ghost flex-1 capitalize"
+            onClick={() => onAction({ type: "six-pick", color })}
+          >
+            {color}
+          </button>
+        ))}
       </Dock>
     );
   }
   if (prompt.kind === "extra-or-done") {
+    const canUseExtra = canUseExtraAction(game, youId);
     return (
       <Dock title={`Extra dice available: ${extraDieLeft(me.sheet)}`}>
-        <button className="btn-primary flex-1" onClick={() => onAction({ type: "use-extra" })}>
+        <button
+          disabled={!canUseExtra}
+          className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => onAction({ type: "use-extra" })}
+        >
           Take an extra die
         </button>
         <button className="btn-ghost flex-1" onClick={() => onAction({ type: "done-extra" })}>
@@ -621,8 +663,9 @@ function HowTo({ compact }: { compact?: boolean }) {
       <summary className="cursor-pointer font-semibold text-cream">How the table works</summary>
       <div className="mt-3 space-y-2 text-pretty leading-relaxed">
         <p>
-          On your turn you roll, keep one die to score, then every lower die drops onto the silver
-          platter. Up to three rolls. Afterwards each friend takes one die off that platter.
+          On your turn you roll, keep one legal die to score, then every lower die drops onto the
+          silver platter. After up to three rolls, each passive player scores one platter die; the
+          dice stay there and may be used by multiple players.
         </p>
         <p>
           White is wild. Blue always scores white + blue. Green must meet the next threshold. Orange
