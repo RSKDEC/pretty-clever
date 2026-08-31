@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { io, type Socket } from "socket.io-client";
 import { DieFace } from "@/components/Die";
 import { DiceTray } from "@/components/DiceTray";
+import { RulesOverlay } from "@/components/RulesOverlay";
 import { ScoreSheet } from "@/components/ScoreSheet";
 import { canUseExtraAction, diceForPrompt } from "@/lib/game/engine";
 import {
@@ -19,7 +21,7 @@ import {
 } from "@/lib/game/sheet";
 import type { ClientAction, Die, GameState, Prompt } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
-import { Check, Link2, RotateCcw, Users } from "lucide-react";
+import { BookOpen, Check, Link2, RotateCcw, Users } from "lucide-react";
 
 type Snap = {
   code: string;
@@ -125,7 +127,10 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
           </div>
         </div>
 
-        <HowTo />
+        <Link href="/rules" className="btn-ghost w-full">
+          <BookOpen className="size-4" />
+          Rules
+        </Link>
       </div>
     );
   }
@@ -184,7 +189,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
             <p className="mt-5 text-sm text-cream/60">Waiting for the host to start…</p>
           )}
         </div>
-        <HowTo compact />
+        <LobbyRules />
       </div>
     );
   }
@@ -217,6 +222,7 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-cream/70">
+              <PlayRules />
               <Pill label="🦊" value={me.sheet.foxes} />
               <Pill label="+die" value={extraDieLeft(me.sheet)} />
               <Pill label="↻" value={rerollsLeft(me.sheet)} />
@@ -654,29 +660,31 @@ function Dock({
   );
 }
 
-function HowTo({ compact }: { compact?: boolean }) {
+function LobbyRules() {
+  const [open, setOpen] = useState(false);
   return (
-    <details
-      className="rounded-2xl border border-white/10 bg-ink-2/50 p-4 text-sm text-cream/70"
-      open={!compact}
-    >
-      <summary className="cursor-pointer font-semibold text-cream">How the table works</summary>
-      <div className="mt-3 space-y-2 text-pretty leading-relaxed">
-        <p>
-          On your turn you roll, keep one legal die to score, then every lower die drops onto the
-          silver platter. After up to three rolls, each passive player scores one platter die; the
-          dice stay there and may be used by multiple players.
-        </p>
-        <p>
-          White is wild. Blue always scores white + blue. Green must meet the next threshold. Orange
-          writes the pips — the ×2 and ×3 boxes multiply. Purple has to climb, and anything may
-          follow a 6.
-        </p>
-        <p>
-          Bonuses fire the moment you fill their box and can chain. Foxes are worth your lowest
-          color at the end, so never leave a color on zero.
-        </p>
-      </div>
-    </details>
+    <>
+      <button type="button" className="btn-ghost w-full" onClick={() => setOpen(true)}>
+        <BookOpen className="size-4" />
+        Rules
+      </button>
+      <RulesOverlay open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+function PlayRules() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-cream/80"
+        onClick={() => setOpen(true)}
+      >
+        Rules
+      </button>
+      <RulesOverlay open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
