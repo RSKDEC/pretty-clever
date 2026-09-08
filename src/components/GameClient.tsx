@@ -55,93 +55,155 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
   }, []);
 
   function create() {
-    socketRef.current?.emit("create", { name }, (res: Snap & { error?: string }) => {
-      if (res?.error) setError(res.error);
-      else {
-        setState(res);
-        history.replaceState(null, "", `/r/${res.code}`);
-      }
-    });
+    socketRef.current?.emit(
+      "create",
+      { name },
+      (res: Snap & { error?: string }) => {
+        if (res?.error) setError(res.error);
+        else {
+          setState(res);
+          history.replaceState(null, "", `/r/${res.code}`);
+        }
+      },
+    );
   }
 
   function join() {
-    socketRef.current?.emit("join", { code: joinCode, name }, (res: Snap & { error?: string }) => {
-      if (res?.error) setError(res.error);
-      else {
-        setState(res);
-        history.replaceState(null, "", `/r/${res.code}`);
-      }
-    });
+    socketRef.current?.emit(
+      "join",
+      { code: joinCode, name },
+      (res: Snap & { error?: string }) => {
+        if (res?.error) setError(res.error);
+        else {
+          setState(res);
+          history.replaceState(null, "", `/r/${res.code}`);
+        }
+      },
+    );
   }
 
   if (!state) {
     return (
-      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-7 px-4 py-10">
-        <header className="space-y-3 text-center">
-          <p className="text-[11px] font-bold tracking-[0.3em] text-gold/80 uppercase">
-            Unofficial table
-          </p>
-          <h1 className="font-display text-5xl leading-none text-cream sm:text-6xl">Pretty Clever</h1>
-          <p className="text-pretty text-sm leading-relaxed text-cream/70">
-            Roll six colored dice, pick cleverly, and chain bonuses across your sheet. Every die you
-            roll lower than your chosen die lands on the silver platter for everyone else.
-          </p>
-        </header>
+      <div className="landing">
+        <nav className="landing-top" aria-label="Main navigation">
+          <span className="wordmark">PC / PRETTY CLEVER</span>
+          <Link href="/rules">
+            <BookOpen className="size-4" /> How to play
+          </Link>
+        </nav>
+        <div className="landing-content">
+          <header className="landing-intro">
+            <span className="eyebrow">A little luck. A clever choice.</span>
+            <h1>
+              Pretty dice.
+              <br />
+              <em>Clever moves.</em>
+            </h1>
+            <p>
+              Six dice. Five colors. Endless little victories. Build your score,
+              chain your bonuses, and leave your friends something to think
+              about.
+            </p>
+            <div className="hero-dice" aria-label="Six colored dice">
+              {(
+                [
+                  "yellow",
+                  "blue",
+                  "green",
+                  "orange",
+                  "purple",
+                  "white",
+                ] as const
+              ).map((color, i) => (
+                <DieFace
+                  key={color}
+                  color={color}
+                  value={[3, 5, 2, 6, 4, 1][i]}
+                />
+              ))}
+            </div>
+            <div className="landing-meta">
+              <span>1–4 players</span>
+              <span>Six colored dice</span>
+              <span>Play together</span>
+            </div>
+          </header>
 
-        <div className="rounded-3xl border border-white/10 bg-ink-2/80 p-4 shadow-2xl sm:p-5">
-          <label htmlFor="name" className="text-[11px] font-bold tracking-wide text-cream/60 uppercase">
-            Your name
-          </label>
-          <input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Alex"
-            autoComplete="nickname"
-            className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-ink px-3 text-base text-cream outline-none ring-gold/40 focus:ring-2"
-          />
-          {error ? <p className="mt-3 text-sm text-orange">{error}</p> : null}
-
-          <button type="button" onClick={create} className="btn-primary mt-4 w-full">
-            Open a table
-          </button>
-
-          <div className="my-4 flex items-center gap-3 text-[11px] tracking-widest text-cream/35 uppercase">
-            <span className="h-px flex-1 bg-white/10" />
-            or join
-            <span className="h-px flex-1 bg-white/10" />
-          </div>
-
-          <div className="flex gap-2">
+          <div className="entry-card">
+            <h2>Your table awaits.</h2>
+            <p>Start a solo game or make room for friends.</p>
+            <label
+              htmlFor="name"
+              className="text-[11px] font-bold tracking-wide text-cream/60 uppercase"
+            >
+              Your name
+            </label>
             <input
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="CODE"
-              maxLength={4}
-              autoCapitalize="characters"
-              className="h-12 w-28 rounded-xl border border-white/10 bg-ink text-center text-lg font-bold tracking-[0.25em] text-cream outline-none ring-gold/40 focus:ring-2"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Alex"
+              autoComplete="nickname"
+              className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-ink px-3 text-base text-cream outline-none ring-gold/40 focus:ring-2"
             />
-            <button type="button" onClick={join} className="btn-ghost flex-1">
-              Sit down
+            {error ? <p className="mt-3 text-sm text-orange">{error}</p> : null}
+
+            <button
+              type="button"
+              onClick={create}
+              className="btn-primary mt-4 w-full"
+            >
+              Open a table
             </button>
+
+            <div className="my-4 flex items-center gap-3 text-[11px] tracking-widest text-cream/35 uppercase">
+              <span className="h-px flex-1 bg-white/10" />
+              or join
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                value={joinCode}
+                onChange={(e) =>
+                  setJoinCode(
+                    e.target.value.toUpperCase().replace(/[^A-Z]/g, ""),
+                  )
+                }
+                placeholder="CODE"
+                aria-label="Table code"
+                maxLength={4}
+                autoCapitalize="characters"
+                className="h-12 w-28 rounded-xl border border-white/10 bg-ink text-center text-lg font-bold tracking-[0.25em] text-cream outline-none ring-gold/40 focus:ring-2"
+              />
+              <button type="button" onClick={join} className="btn-ghost flex-1">
+                Sit down
+              </button>
+            </div>
           </div>
         </div>
-
-        <Link href="/rules" className="btn-ghost w-full">
-          <BookOpen className="size-4" />
-          Rules
-        </Link>
+        <footer className="landing-footer">
+          <span>An unofficial That&apos;s Pretty Clever fan table.</span>
+          <span>Roll. Choose. Outfox.</span>
+        </footer>
       </div>
     );
   }
 
   if (!state.game) {
-    const share = typeof window !== "undefined" ? `${window.location.origin}/r/${state.code}` : "";
+    const share =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/r/${state.code}`
+        : "";
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-5 px-4 py-10">
         <div className="rounded-3xl border border-white/10 bg-ink-2/80 p-5 text-center shadow-2xl">
-          <p className="text-[11px] tracking-[0.3em] text-gold/80 uppercase">Table code</p>
-          <p className="font-display mt-1 text-6xl tracking-[0.15em] text-cream">{state.code}</p>
+          <p className="text-[11px] tracking-[0.3em] text-gold/80 uppercase">
+            Table code
+          </p>
+          <p className="font-display mt-1 text-6xl tracking-[0.15em] text-cream">
+            {state.code}
+          </p>
           <button
             type="button"
             className="btn-ghost mt-4 w-full"
@@ -151,7 +213,11 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
               setTimeout(() => setCopied(false), 1500);
             }}
           >
-            {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
+            {copied ? (
+              <Check className="size-4" />
+            ) : (
+              <Link2 className="size-4" />
+            )}
             {copied ? "Link copied" : "Copy invite link"}
           </button>
 
@@ -164,7 +230,9 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
                 <Users className="size-4 shrink-0 text-cream/40" />
                 <span className="flex-1 truncate">{p.name}</span>
                 {p.id === state.hostId ? (
-                  <span className="text-[10px] font-bold tracking-wide text-gold uppercase">host</span>
+                  <span className="text-[10px] font-bold tracking-wide text-gold uppercase">
+                    host
+                  </span>
                 ) : null}
               </li>
             ))}
@@ -186,7 +254,9 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
               </p>
             </>
           ) : (
-            <p className="mt-5 text-sm text-cream/60">Waiting for the host to start…</p>
+            <p className="mt-5 text-sm text-cream/60">
+              Waiting for the host to start…
+            </p>
           )}
         </div>
         <LobbyRules />
@@ -194,10 +264,21 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
     );
   }
 
-  return <Play snap={state} onAction={(action) => socketRef.current?.emit("action", action)} />;
+  return (
+    <Play
+      snap={state}
+      onAction={(action) => socketRef.current?.emit("action", action)}
+    />
+  );
 }
 
-function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => void }) {
+function Play({
+  snap,
+  onAction,
+}: {
+  snap: Snap;
+  onAction: (a: ClientAction) => void;
+}) {
   const game = snap.game!;
   const me = game.players.find((p) => p.id === snap.youId) ?? game.players[0]!;
   const prompt = game.prompt;
@@ -218,7 +299,9 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
               </h1>
               <p className="truncate text-[11px] text-cream/50">
                 Table {snap.code} · Round {game.round}/{game.totalRounds} ·{" "}
-                {game.status === "finished" ? "finished" : `${active?.name}'s turn`}
+                {game.status === "finished"
+                  ? "finished"
+                  : `${active?.name}'s turn`}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-cream/70">
@@ -240,12 +323,20 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
                   onClick={() => setViewId(p.id)}
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition",
-                    viewId === p.id ? "bg-gold text-ink" : "bg-white/8 text-cream/80",
+                    viewId === p.id
+                      ? "bg-gold text-ink"
+                      : "bg-white/8 text-cream/80",
                   )}
                 >
-                  {isWaiting ? <span className="size-1.5 rounded-full bg-current" /> : null}
+                  {isWaiting ? (
+                    <span className="size-1.5 rounded-full bg-current" />
+                  ) : null}
                   <span className="max-w-24 truncate">{p.name}</span>
-                  <span className={cn(viewId === p.id ? "text-ink/60" : "text-cream/45")}>
+                  <span
+                    className={cn(
+                      viewId === p.id ? "text-ink/60" : "text-cream/45",
+                    )}
+                  >
                     {totalScore(p.sheet)}
                   </span>
                   {isActive ? <span aria-label="active player">🎲</span> : null}
@@ -261,7 +352,9 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
           <div className="min-w-0 space-y-3">
             {!viewingSelf ? (
               <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                <span className="truncate text-cream/80">Viewing {viewed.name}&apos;s sheet</span>
+                <span className="truncate text-cream/80">
+                  Viewing {viewed.name}&apos;s sheet
+                </span>
                 <button
                   type="button"
                   onClick={() => setViewId(snap.youId)}
@@ -280,7 +373,34 @@ function Play({ snap, onAction }: { snap: Snap; onAction: (a: ClientAction) => v
             />
           </div>
 
-          <aside className="mt-3 space-y-3 lg:mt-0">
+          <aside className="game-sidebar mt-3 space-y-3 lg:mt-0">
+            <div className="rounded-2xl border border-white/10 bg-ink-2/70 p-4">
+              <p className="eyebrow">
+                Round {game.round} of {game.totalRounds}
+              </p>
+              <div className="round-strip" aria-label="Round progress">
+                {Array.from({ length: game.totalRounds }, (_, i) => (
+                  <span
+                    key={i}
+                    aria-current={i + 1 === game.round ? "step" : undefined}
+                    className={
+                      i + 1 === game.round
+                        ? "current-round"
+                        : i + 1 < game.round
+                          ? "past-round"
+                          : ""
+                    }
+                  >
+                    {i + 1}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-cream/70">
+                {game.status === "finished"
+                  ? "All rounds complete"
+                  : `${active?.name}'s turn`}
+              </p>
+            </div>
             {game.status === "finished" ? <FinalTally game={game} /> : null}
             <TableDice game={game} />
             <LogPanel game={game} />
@@ -322,7 +442,13 @@ function TableDice({ game }: { game: GameState }) {
     dice.length ? (
       <div className="flex flex-wrap gap-1">
         {dice.map((d, i) => (
-          <DieFace key={`${d.id}-${i}`} color={d.color} value={d.value} size="sm" className={muted ? "opacity-60" : ""} />
+          <DieFace
+            key={`${d.id}-${i}`}
+            color={d.color}
+            value={d.value}
+            size="sm"
+            className={muted ? "opacity-60" : ""}
+          />
         ))}
       </div>
     ) : (
@@ -331,10 +457,14 @@ function TableDice({ game }: { game: GameState }) {
 
   return (
     <div className="rounded-2xl border border-white/10 bg-ink-2/70 p-3">
-      <p className="text-[11px] font-bold tracking-wide text-cream/45 uppercase">On the table</p>
+      <p className="text-[11px] font-bold tracking-wide text-cream/45 uppercase">
+        On the table
+      </p>
       <div className="mt-2 grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-cream/70">Kept ({game.dice.chosen.length}/3)</p>
+          <p className="text-xs font-semibold text-cream/70">
+            Kept ({game.dice.chosen.length}/3)
+          </p>
           {strip(game.dice.chosen)}
         </div>
         <div className="space-y-1.5">
@@ -348,7 +478,10 @@ function TableDice({ game }: { game: GameState }) {
 
 function LogPanel({ game }: { game: GameState }) {
   return (
-    <details className="rounded-2xl border border-white/10 bg-ink-2/70 p-3" open>
+    <details
+      className="rounded-2xl border border-white/10 bg-ink-2/70 p-3"
+      open
+    >
       <summary className="cursor-pointer list-none text-[11px] font-bold tracking-wide text-cream/45 uppercase">
         Table talk
       </summary>
@@ -382,9 +515,9 @@ function FinalTally({ game }: { game: GameState }) {
               {s.rank}. {s.name} — {s.total}
             </span>
             <span className="mt-0.5 block text-[11px] text-cream/50">
-              Y {s.areas.yellow} · B {s.areas.blue} · G {s.areas.green} · O {s.areas.orange} · P{" "}
-              {s.areas.purple} · 🦊 {s.foxes} × {s.foxes ? s.foxSubtotal / s.foxes : 0} ={" "}
-              {s.foxSubtotal}
+              Y {s.areas.yellow} · B {s.areas.blue} · G {s.areas.green} · O{" "}
+              {s.areas.orange} · P {s.areas.purple} · 🦊 {s.foxes} ×{" "}
+              {s.foxes ? s.foxSubtotal / s.foxes : 0} = {s.foxSubtotal}
             </span>
           </li>
         ))}
@@ -410,7 +543,12 @@ function PromptBar({
 }) {
   const waiter = game.players.find((p) => p.id === prompt?.playerId);
   const me = game.players.find((p) => p.id === youId)!;
-  const allDice = [...game.dice.pool, ...game.dice.rolled, ...game.dice.chosen, ...game.dice.platter];
+  const allDice = [
+    ...game.dice.pool,
+    ...game.dice.rolled,
+    ...game.dice.chosen,
+    ...game.dice.platter,
+  ];
   const activeRollHasLegalDie =
     prompt?.kind === "pick-die" &&
     prompt.source === "active" &&
@@ -430,7 +568,9 @@ function PromptBar({
   if (!mine) {
     return (
       <Dock title={`Waiting on ${waiter?.name ?? "a player"}…`} muted>
-        <p className="text-sm text-cream/55">Tap a name above to watch their sheet fill up.</p>
+        <p className="text-sm text-cream/55">
+          Tap a name above to watch their sheet fill up.
+        </p>
       </Dock>
     );
   }
@@ -439,7 +579,10 @@ function PromptBar({
     if (prompt.round === 1 || prompt.round === 3) {
       return (
         <Dock title={`Round ${prompt.round} bonus`}>
-          <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "reroll" })}>
+          <button
+            className="btn-primary flex-1"
+            onClick={() => onAction({ type: "claim-round", choice: "reroll" })}
+          >
             <RotateCcw className="size-4" /> Bank a reroll
           </button>
         </Dock>
@@ -451,12 +594,18 @@ function PromptBar({
       return (
         <Dock title="Round 4 bonus — pick one">
           {xOptions.length ? (
-            <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "x" })}>
+            <button
+              className="btn-primary flex-1"
+              onClick={() => onAction({ type: "claim-round", choice: "x" })}
+            >
               Free ✕
             </button>
           ) : null}
           {sixOptions.length ? (
-            <button className="btn-ghost flex-1" onClick={() => onAction({ type: "claim-round", choice: "six" })}>
+            <button
+              className="btn-ghost flex-1"
+              onClick={() => onAction({ type: "claim-round", choice: "six" })}
+            >
               Write a 6
             </button>
           ) : null}
@@ -465,17 +614,29 @@ function PromptBar({
     }
     return (
       <Dock title={`Round ${prompt.round} bonus`}>
-        <button className="btn-primary flex-1" onClick={() => onAction({ type: "claim-round", choice: "extra" })}>
+        <button
+          className="btn-primary flex-1"
+          onClick={() => onAction({ type: "claim-round", choice: "extra" })}
+        >
           Bank an extra die
         </button>
       </Dock>
     );
   }
 
-  if (prompt.kind === "pick-die" && prompt.source === "active" && game.dice.rolled.length === 0) {
+  if (
+    prompt.kind === "pick-die" &&
+    prompt.source === "active" &&
+    game.dice.rolled.length === 0
+  ) {
     return (
-      <Dock title={`Roll ${game.rollsUsed + 1} of 3 · ${game.dice.pool.length} dice in hand`}>
-        <button className="btn-primary flex-1" onClick={() => onAction({ type: "roll" })}>
+      <Dock
+        title={`Roll ${game.rollsUsed + 1} of 3 · ${game.dice.pool.length} dice in hand`}
+      >
+        <button
+          className="btn-primary flex-1"
+          onClick={() => onAction({ type: "roll" })}
+        >
           Roll the dice
         </button>
       </Dock>
@@ -496,7 +657,10 @@ function PromptBar({
         <div className="w-full space-y-2">
           {prompt.source === "active" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-cream/45 lg:hidden">
-              <MiniStrip label={`Kept ${game.dice.chosen.length}/3`} dice={game.dice.chosen} />
+              <MiniStrip
+                label={`Kept ${game.dice.chosen.length}/3`}
+                dice={game.dice.chosen}
+              />
               <MiniStrip label="Platter" dice={game.dice.platter} />
             </div>
           ) : null}
@@ -509,18 +673,32 @@ function PromptBar({
             onPick={(id) => onAction({ type: "pick-die", dieId: id })}
           />
           <div className="flex gap-2">
-            {prompt.source === "active" && rerollsLeft(me.sheet) > 0 && game.dice.rolled.length > 0 ? (
-              <button className="btn-ghost flex-1" onClick={() => onAction({ type: "reroll" })}>
-                <RotateCcw className="size-4" /> Reroll ({rerollsLeft(me.sheet)})
+            {prompt.source === "active" &&
+            rerollsLeft(me.sheet) > 0 &&
+            game.dice.rolled.length > 0 ? (
+              <button
+                className="btn-ghost flex-1"
+                onClick={() => onAction({ type: "reroll" })}
+              >
+                <RotateCcw className="size-4" /> Reroll ({rerollsLeft(me.sheet)}
+                )
               </button>
             ) : null}
-            {prompt.source === "active" && game.dice.rolled.length > 0 && !activeRollHasLegalDie ? (
-              <button className="btn-primary flex-1" onClick={() => onAction({ type: "forfeit-roll" })}>
+            {prompt.source === "active" &&
+            game.dice.rolled.length > 0 &&
+            !activeRollHasLegalDie ? (
+              <button
+                className="btn-primary flex-1"
+                onClick={() => onAction({ type: "forfeit-roll" })}
+              >
                 No legal die — forfeit roll
               </button>
             ) : null}
             {prompt.allowPass ? (
-              <button className="btn-ghost flex-1" onClick={() => onAction({ type: "pass" })}>
+              <button
+                className="btn-ghost flex-1"
+                onClick={() => onAction({ type: "pass" })}
+              >
                 Pass
               </button>
             ) : null}
@@ -552,20 +730,32 @@ function PromptBar({
   if (prompt.kind === "yellow-cell") {
     return (
       <Dock
-        title={prompt.value === "any" ? "Bonus ✕ — tap any open yellow box" : `Tap a yellow ${prompt.value}`}
+        title={
+          prompt.value === "any"
+            ? "Bonus ✕ — tap any open yellow box"
+            : `Tap a yellow ${prompt.value}`
+        }
         muted
       >
-        <p className="text-sm text-cream/55">The playable boxes are outlined on your sheet.</p>
+        <p className="text-sm text-cream/55">
+          The playable boxes are outlined on your sheet.
+        </p>
       </Dock>
     );
   }
   if (prompt.kind === "blue-cell") {
     return (
       <Dock
-        title={prompt.value === "any" ? "Bonus ✕ — tap any open blue box" : `Tap blue ${prompt.value}`}
+        title={
+          prompt.value === "any"
+            ? "Bonus ✕ — tap any open blue box"
+            : `Tap blue ${prompt.value}`
+        }
         muted
       >
-        <p className="text-sm text-cream/55">The playable boxes are outlined on your sheet.</p>
+        <p className="text-sm text-cream/55">
+          The playable boxes are outlined on your sheet.
+        </p>
       </Dock>
     );
   }
@@ -612,7 +802,10 @@ function PromptBar({
         >
           Take an extra die
         </button>
-        <button className="btn-ghost flex-1" onClick={() => onAction({ type: "done-extra" })}>
+        <button
+          className="btn-ghost flex-1"
+          onClick={() => onAction({ type: "done-extra" })}
+        >
           End turn
         </button>
       </Dock>
@@ -627,7 +820,13 @@ function MiniStrip({ label, dice }: { label: string; dice: Die[] }) {
       <span className="font-semibold">{label}</span>
       {dice.length ? (
         dice.map((d, i) => (
-          <DieFace key={`${d.id}-${i}`} color={d.color} value={d.value} size="sm" className="size-6 p-0.5" />
+          <DieFace
+            key={`${d.id}-${i}`}
+            color={d.color}
+            value={d.value}
+            size="sm"
+            className="size-6 p-0.5"
+          />
         ))
       ) : (
         <span className="opacity-60">—</span>
@@ -664,7 +863,11 @@ function LobbyRules() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="btn-ghost w-full" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="btn-ghost w-full"
+        onClick={() => setOpen(true)}
+      >
         <BookOpen className="size-4" />
         Rules
       </button>

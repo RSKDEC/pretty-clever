@@ -56,10 +56,10 @@ assert.deepEqual(BLUE_ROW_BONUSES, [
   { type: "fox" },
 ]);
 assert.deepEqual(BLUE_COL_GROUPS, [
-  { cells: [0, 3, 7], bonus: { type: "reroll" } },
-  { cells: [1, 4, 8], bonus: { type: "greenX" } },
-  { cells: [2, 5, 9], bonus: { type: "purpleN", value: 6 } },
-  { cells: [6, 10], bonus: { type: "extraDie" } },
+  { cells: [3, 7], bonus: { type: "reroll" } },
+  { cells: [0, 4, 8], bonus: { type: "greenX" } },
+  { cells: [1, 5, 9], bonus: { type: "purpleN", value: 6 } },
+  { cells: [2, 6, 10], bonus: { type: "extraDie" } },
 ]);
 assert.deepEqual(GREEN_MIN, [1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6]);
 assert.deepEqual(GREEN_BONUSES, [
@@ -236,6 +236,20 @@ blue.rollsUsed = 1;
 blue.prompt = { kind: "pick-die", playerId: "a", source: "active", allowPass: false };
 blue = applyAction(blue, "a", { type: "pick-die", dieId: "blue" });
 assert.equal(blue.players[0]!.sheet.blue[5], true, "blue 3 + white 4 marks seven");
+
+// The photo's left blue column contains only 5 and 9; 2 belongs above 6/10.
+let leftColumn = onePlayer(39);
+leftColumn.players[0]!.sheet.blue[3] = true;
+leftColumn.prompt = { kind: "blue-cell", playerId: "a", value: "any" };
+const rerollsBeforeColumn = leftColumn.players[0]!.sheet.rerolls;
+leftColumn = applyAction(leftColumn, "a", { type: "blue-cell", index: 7 });
+assert.equal(leftColumn.players[0]!.sheet.rerolls, rerollsBeforeColumn + 1, "5 + 9 earns a reroll without marking 2");
+let secondColumn = onePlayer(40);
+secondColumn.players[0]!.sheet.blue[4] = true;
+secondColumn.players[0]!.sheet.blue[8] = true;
+secondColumn.prompt = { kind: "blue-cell", playerId: "a", value: "any" };
+secondColumn = applyAction(secondColumn, "a", { type: "blue-cell", index: 0 });
+assert.equal(secondColumn.players[0]!.sheet.green, 1, "2 + 6 + 10 earns a green cross");
 
 // Immediate bonuses chain: yellow row -> blue X -> blue row -> orange 5.
 let chain = onePlayer(41);

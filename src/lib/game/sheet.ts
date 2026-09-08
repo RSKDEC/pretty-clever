@@ -38,10 +38,10 @@ export const BLUE_ROW_BONUSES: Bonus[] = [
 ];
 
 export const BLUE_COL_GROUPS: { cells: number[]; bonus: Bonus }[] = [
-  { cells: [0, 3, 7], bonus: { type: "reroll" } },
-  { cells: [1, 4, 8], bonus: { type: "greenX" } },
-  { cells: [2, 5, 9], bonus: { type: "purpleN", value: 6 } },
-  { cells: [6, 10], bonus: { type: "extraDie" } },
+  { cells: [3, 7], bonus: { type: "reroll" } },
+  { cells: [0, 4, 8], bonus: { type: "greenX" } },
+  { cells: [1, 5, 9], bonus: { type: "purpleN", value: 6 } },
+  { cells: [2, 6, 10], bonus: { type: "extraDie" } },
 ];
 
 export const BLUE_SCORES = [0, 1, 2, 4, 7, 11, 16, 22, 29, 37, 46, 56];
