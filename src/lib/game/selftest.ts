@@ -214,6 +214,38 @@ assert.deepEqual(mandatory.dice.pool.map((die) => die.value), forfeitedValues);
 assert.equal(mandatory.dice.chosen.length, 0);
 assert.equal(mandatory.dice.platter.length, 0);
 
+// A forfeited roll still counts toward the three-roll limit.
+let capped = onePlayer(33);
+capped.players[0]!.sheet.yellow.forEach(cell => { if (cell.value === 1) cell.marked = true; });
+capped.dice = { pool: [], rolled: [{ id: "yellow", color: "yellow", value: 1 }], chosen: [], platter: [] };
+capped.rollsUsed = 1;
+capped = applyAction(capped, "a", { type: "forfeit-roll" });
+capped = applyAction(capped, "a", { type: "roll" });
+capped.dice = { pool: [], rolled: [
+  { id: "orange", color: "orange", value: 1 },
+  { id: "green", color: "green", value: 2 },
+  { id: "purple", color: "purple", value: 6 },
+], chosen: [], platter: [] };
+capped = applyAction(capped, "a", { type: "pick-die", dieId: "orange" });
+capped = applyAction(capped, "a", { type: "roll" });
+assert.equal(capped.rollsUsed, 3);
+capped.dice.rolled = [
+  { id: "green", color: "green", value: 2 },
+  { id: "purple", color: "purple", value: 6 },
+];
+capped.players[0]!.sheet.extraDie = 1; // Pause at extras before solo dice reset.
+capped = applyAction(capped, "a", { type: "pick-die", dieId: "green" });
+assert.equal(capped.prompt?.kind, "extra-or-done", "third roll ends active play even with fewer than three kept dice");
+assert.equal(capped.dice.pool.length, 0);
+assert.equal(capped.dice.platter.length, 1, "unselected die goes to platter after third roll");
+
+// Server guard: a fourth normal roll must not mutate dice or counters.
+let exhausted = onePlayer(35);
+exhausted.rollsUsed = 3;
+const beforeFourth = structuredClone(exhausted);
+exhausted = applyAction(exhausted, "a", { type: "roll" });
+assert.deepEqual(exhausted, beforeFourth, "reject a fourth normal roll");
+
 // Blue always reads both immutable dice regardless of their table partitions.
 const splitDice = {
   pool: [] as Die[],
