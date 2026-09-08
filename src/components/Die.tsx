@@ -50,7 +50,7 @@ export function DieFace({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 grid-cols-3 grid-rows-3 gap-px shadow-md ring-1 ring-black/15",
+        "die-face inline-grid shrink-0 grid-cols-3 grid-rows-3 gap-px shadow-md ring-1 ring-black/15",
         box,
         FACE[color],
         className,

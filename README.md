@@ -90,4 +90,4 @@ A Cloudflare quick tunnel in front of `npm start` still works for a one-off nigh
 
 ## Fidelity note
 
-Scoring, the silver platter, the wild white die, round bonuses, and the five-fox ceiling follow the printed rules. The exact square each bonus icon sits on is reconstructed rather than copied from the pad, so a few bonuses may sit one box away from your physical copy.
+Scoring, the silver platter, the wild white die, round bonuses, and the five-fox ceiling follow the printed rules. The scorecard layout and bonus positions follow the supplied printed-pad reference, including the offset blue grid: columns 5/9, 2/6/10, 3/7/11, and 4/8/12.

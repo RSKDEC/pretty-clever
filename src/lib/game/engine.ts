@@ -294,7 +294,7 @@ function doRoll(state: Internal, playerId: string, isReroll: boolean) {
     log(state, `${p.name} rerolls: ${fmtDice(state.dice.rolled)}.`);
     return;
   }
-  if (state.dice.rolled.length > 0 || state.dice.pool.length === 0) return;
+  if (state.rollsUsed >= 3 || state.dice.rolled.length > 0 || state.dice.pool.length === 0) return;
   state.dice.rolled = state.dice.pool.map((d) => ({ ...d, value: rollValue(rng) }));
   state.dice.pool = [];
   state.rollsUsed += 1;
@@ -608,7 +608,7 @@ function resumeFlow(state: Internal, resume: Resume) {
 
 function afterActivePick(state: Internal) {
   const p = state.players[state.activeIndex];
-  if (state.dice.chosen.length >= 3 || state.dice.pool.length === 0) {
+  if (state.rollsUsed >= 3 || state.dice.chosen.length >= 3 || state.dice.pool.length === 0) {
     state.dice.platter.push(...state.dice.pool, ...state.dice.rolled);
     state.dice.pool = [];
     state.dice.rolled = [];

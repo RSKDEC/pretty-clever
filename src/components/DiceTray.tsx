@@ -25,7 +25,7 @@ export function DiceTray({
   }
 
   return (
-    <div className="no-scrollbar -mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1">
+    <div className="dice-tray no-scrollbar -mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1">
       {dice.map((die) => {
         const fits = canScoreDie(sheet, die, allDice);
         const usedColor = source === "extra" && extraUsed.includes(die.color);
@@ -38,7 +38,7 @@ export function DiceTray({
             disabled={disabled}
             onClick={() => onPick(die.id)}
             className={cn(
-              "flex min-w-[4rem] shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 transition sm:min-w-[4.5rem] sm:gap-1.5 sm:py-2",
+              "die-option flex min-w-[4rem] shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 transition sm:min-w-[4.5rem] sm:gap-1.5 sm:py-2",
               fits && !usedColor
                 ? "border-gold/60 bg-gold/10 active:scale-95"
                 : "border-white/10 bg-white/5",
