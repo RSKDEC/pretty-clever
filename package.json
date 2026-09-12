@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
-    "test": "tsx src/lib/game/selftest.ts"
+    "test": "tsx src/lib/game/selftest.ts && tsx src/server/selftest.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

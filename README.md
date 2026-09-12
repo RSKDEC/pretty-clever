@@ -33,7 +33,7 @@ Rounds scale with player count: 6 (1–2 players), 5 (3), 4 (4).
 
 ## Host it (Render)
 
-This app is a **long-running Node process** with Socket.IO. Vercel, Netlify, and other request-scoped hosts will not work. Rooms live **in memory on one process** — keep a single instance. A restart (or a Free-plan sleep) clears every open table. Rejoin the same code with the same name if you drop mid-game.
+This app is a **long-running Node process** with Socket.IO. Vercel, Netlify, and other request-scoped hosts will not work. Rooms live **in memory on one process** — keep a single instance. A restart (or a Free-plan sleep) clears every open table. Your browser automatically restores your seat after a brief disconnect or refresh using a private token stored for that tab. Names are not login credentials. Keep the original browser tab to resume a game. Empty rooms remain available for 30 minutes; when others stay connected, offline lobby seats are held for 5 minutes before removal and host reassignment. Everyone must be connected before the host starts. A server restart still requires a new table.
 
 Render is the straightforward always-on-ish path: Docker Web Service, HTTPS URL, no extra database.
 

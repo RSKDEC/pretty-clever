@@ -29,8 +29,8 @@ type Snap = {
   status: "lobby" | "playing" | "finished";
   youId: string;
   game: GameState | null;
-  lobby: { id: string; name: string; host?: boolean }[];
-  error?: string;
+  lobby: { id: string; name: string; host?: boolean; connected: boolean }[];
+  resumeToken: string;
 };
 
 export function GameClient({ initialCode }: { initialCode?: string }) {
@@ -41,50 +41,142 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [connection, setConnection] = useState<
+    "connecting" | "online" | "offline" | "restoring"
+  >("connecting");
+  const [pending, setPending] = useState(false);
+  const seatRef = useRef<{ code: string; token: string } | null>(null);
+  const requestRef = useRef(false);
+
+  function accept(next: Snap) {
+    seatRef.current = { code: next.code, token: next.resumeToken };
+    try {
+      sessionStorage.setItem(
+        `clever-seat:${next.code}`,
+        JSON.stringify(seatRef.current),
+      );
+    } catch {
+      /* In-memory restore still works when storage is unavailable. */
+    }
+    setState(next);
+    setError(null);
+    setConnection("online");
+    setPending(false);
+    requestRef.current = false;
+    history.replaceState(null, "", `/r/${next.code}`);
+  }
+
   useEffect(() => {
     const s = io({ path: "/socket.io" });
     socketRef.current = s;
-    s.on("state", (next: Snap) => {
-      setState(next);
-      setError(null);
+    s.on("state", accept);
+    s.on("connect", () => {
+      const roomCode = window.location.pathname
+        .match(/^\/r\/([a-z]{4})$/i)?.[1]
+        .toUpperCase();
+      if (!seatRef.current && roomCode) {
+        try {
+          const saved = JSON.parse(
+            sessionStorage.getItem(`clever-seat:${roomCode}`) ?? "null",
+          );
+          if (saved?.code === roomCode && typeof saved.token === "string")
+            seatRef.current = saved;
+        } catch {
+          /* A missing saved seat simply shows the join form. */
+        }
+      }
+      const seat = seatRef.current;
+      if (!seat) {
+        setConnection("online");
+        return;
+      }
+      setConnection("restoring");
+      const connectionId = s.id;
+      s.timeout(10000).emit(
+        "resume",
+        seat,
+        (err: Error | null, res: Snap | { error: string }) => {
+          if (s.id !== connectionId || !s.connected) return;
+          if (err) {
+            setError(
+              "Could not restore your table. Please retry the connection.",
+            );
+            return;
+          }
+          if ("error" in res) {
+            try {
+              sessionStorage.removeItem(`clever-seat:${seat.code}`);
+            } catch {}
+            seatRef.current = null;
+            setState(null);
+            setJoinCode(seat.code);
+            setError(res.error);
+            setConnection("online");
+          } else accept(res);
+        },
+      );
     });
+    const disconnected = () => {
+      setConnection("offline");
+      setPending(false);
+      requestRef.current = false;
+    };
+    s.on("disconnect", disconnected);
+    s.on("connect_error", disconnected);
     return () => {
       s.close();
       socketRef.current = null;
     };
   }, []);
 
-  function create() {
-    socketRef.current?.emit(
-      "create",
-      { name },
-      (res: Snap & { error?: string }) => {
-        if (res?.error) setError(res.error);
-        else {
-          setState(res);
-          history.replaceState(null, "", `/r/${res.code}`);
-        }
+  function enter(event: "create" | "join") {
+    const s = socketRef.current;
+    if (!s?.connected || connection !== "online" || requestRef.current) return;
+    requestRef.current = true;
+    setPending(true);
+    setError(null);
+    const connectionId = s.id;
+    s.timeout(10000).emit(
+      event,
+      event === "create" ? { name } : { name, code: joinCode.trim() },
+      (err: Error | null, res: Snap | { error: string }) => {
+        if (s.id !== connectionId || !s.connected) return;
+        requestRef.current = false;
+        setPending(false);
+        if (err) {
+          setError("The server did not respond. Please retry.");
+        } else if ("error" in res) setError(res.error);
+        else accept(res);
       },
     );
   }
-
-  function join() {
-    socketRef.current?.emit(
-      "join",
-      { code: joinCode, name },
-      (res: Snap & { error?: string }) => {
-        if (res?.error) setError(res.error);
-        else {
-          setState(res);
-          history.replaceState(null, "", `/r/${res.code}`);
-        }
-      },
-    );
-  }
+  const unavailable = connection !== "online";
+  const connectionNotice = unavailable ? (
+    <div
+      role="status"
+      className="rounded-xl border border-gold/40 bg-ink-2 p-3 text-sm text-gold"
+    >
+      {connection === "connecting"
+        ? "Connecting to the table server…"
+        : connection === "restoring"
+          ? "Restoring your seat…"
+          : "Connection lost. Reconnecting—your seat is saved."}
+      {error && <p>{error}</p>}
+      {connection !== "connecting" && (
+        <button
+          className="ml-3 underline"
+          onClick={() => socketRef.current?.disconnect().connect()}
+        >
+          Retry connection
+        </button>
+      )}
+    </div>
+  ) : null;
 
   if (!state) {
     return (
       <div className="landing">
+        {connectionNotice}
         <nav className="landing-top" aria-label="Main navigation">
           <span className="wordmark">PC / PRETTY CLEVER</span>
           <Link href="/rules">
@@ -150,7 +242,8 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
 
             <button
               type="button"
-              onClick={create}
+              onClick={() => enter("create")}
+              disabled={unavailable || pending}
               className="btn-primary mt-4 w-full"
             >
               Open a table
@@ -176,7 +269,12 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
                 autoCapitalize="characters"
                 className="h-12 w-28 rounded-xl border border-white/10 bg-ink text-center text-lg font-bold tracking-[0.25em] text-cream outline-none ring-gold/40 focus:ring-2"
               />
-              <button type="button" onClick={join} className="btn-ghost flex-1">
+              <button
+                type="button"
+                onClick={() => enter("join")}
+                disabled={unavailable || pending}
+                className="btn-ghost flex-1"
+              >
                 Sit down
               </button>
             </div>
@@ -197,6 +295,7 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
         : "";
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-5 px-4 py-10">
+        {connectionNotice}
         <div className="rounded-3xl border border-white/10 bg-ink-2/80 p-5 text-center shadow-2xl">
           <p className="text-[11px] tracking-[0.3em] text-gold/80 uppercase">
             Table code
@@ -229,6 +328,9 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
               >
                 <Users className="size-4 shrink-0 text-cream/40" />
                 <span className="flex-1 truncate">{p.name}</span>
+                {!p.connected && (
+                  <span className="text-xs text-cream/60">Reconnecting…</span>
+                )}
                 {p.id === state.hostId ? (
                   <span className="text-[10px] font-bold tracking-wide text-gold uppercase">
                     host
@@ -242,15 +344,21 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
             <>
               <button
                 type="button"
-                onClick={() => socketRef.current?.emit("start")}
+                disabled={unavailable || state.lobby.some((p) => !p.connected)}
+                onClick={() => {
+                  if (socketRef.current?.connected && !unavailable)
+                    socketRef.current.emit("start");
+                }}
                 className="btn-primary mt-5 w-full"
               >
                 Start the game
               </button>
               <p className="mt-2 text-xs text-cream/45">
-                {state.lobby.length === 1
-                  ? "Solo works too — 6 rounds against the score table."
-                  : `${state.lobby.length} players · ${state.lobby.length >= 4 ? 4 : state.lobby.length === 3 ? 5 : 6} rounds`}
+                {state.lobby.some((p) => !p.connected)
+                  ? "Waiting for disconnected players. Offline seats are held for 5 minutes."
+                  : state.lobby.length === 1
+                    ? "Solo works too — 6 rounds against the score table."
+                    : `${state.lobby.length} players · ${state.lobby.length >= 4 ? 4 : state.lobby.length === 3 ? 5 : 6} rounds`}
               </p>
             </>
           ) : (
@@ -265,10 +373,18 @@ export function GameClient({ initialCode }: { initialCode?: string }) {
   }
 
   return (
-    <Play
-      snap={state}
-      onAction={(action) => socketRef.current?.emit("action", action)}
-    />
+    <>
+      {unavailable && (
+        <div className="fixed inset-x-0 top-0 z-50 p-2">{connectionNotice}</div>
+      )}
+      <Play
+        snap={state}
+        onAction={(action) => {
+          if (socketRef.current?.connected && !unavailable)
+            socketRef.current.emit("action", action);
+        }}
+      />
+    </>
   );
 }
 
